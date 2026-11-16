@@ -104,6 +104,9 @@ def _client() -> OpenAI:
         return c
 
 
+EMPTY_RETRIES = 4  # retries when a response comes back without choices
+
+
 def _sdk_call(make, retries: int = RETRIES):
     """Run an OpenAI SDK call, translating failures to LLMError. The SDK retries network errors, 408, 429
     and 5xx itself; we add OpenRouter's 402 + Retry-After (in-flight budget full though credit is left)."""
@@ -144,11 +147,16 @@ def chat(messages: list[dict], *, model: str = MAIN_MODEL, tools: list[dict] | N
     if tools:
         kwargs["tools"] = tools
         kwargs["tool_choice"] = tool_choice or "auto"
-    resp = _sdk_call(lambda: _client().chat.completions.create(**kwargs))
-    if tracker and resp.usage is not None:
-        tracker.add(model, resp.usage.model_dump())
-    if not resp.choices:
-        raise LLMError(f"No choices in response: {str(resp)[:300]}")
+    # OpenRouter sometimes answers 200 with no choices (a provider hiccup): retry those with backoff.
+    for attempt in range(EMPTY_RETRIES + 1):
+        resp = _sdk_call(lambda: _client().chat.completions.create(**kwargs))
+        if tracker and resp.usage is not None:
+            tracker.add(model, resp.usage.model_dump())
+        if resp.choices:
+            break
+        if attempt == EMPTY_RETRIES:
+            raise LLMError(f"No choices in response: {str(resp)[:300]}")
+        time.sleep(2 ** (attempt + 1))
     choice = resp.choices[0]
     msg = choice.message.model_dump()  # plain dict: role/content/tool_calls (+ reasoning if present)
     msg["_finish_reason"] = choice.finish_reason

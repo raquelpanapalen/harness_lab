@@ -70,6 +70,7 @@ class Replay:
     def __init__(self, store: Store, order: list[str], reveal: bool, results: Path):
         self.store, self.order, self.reveal, self.results = store, order, reveal, results
         self.lock = threading.Lock()
+        self.n_started = 0
         self.sessions: dict[str, dict] = {}
         self.next_idx = 0
         self.dyn_blobs: dict[str, bytes] = {}  # files written during a run, by sha256
@@ -86,7 +87,8 @@ class Replay:
             else:
                 src = self.order[self.next_idx % len(self.order)]
                 self.next_idx += 1
-            n = len(self.sessions) + 1
+            self.n_started += 1  # counted under the lock: parallel starts must not share a run number
+            n = self.n_started
         d = self.store.load(src)
         run_id = f"rp{n:03d}_{src}"
         tasks = {}
