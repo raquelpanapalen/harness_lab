@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import json
+import re
 import os
 import subprocess
 import sys
@@ -40,10 +41,18 @@ def truth_for(run_id: str) -> dict:
     return {t["task_id"]: t for t in rv["tasks"]}
 
 
+def kind_of(t: dict) -> str:
+    return task_kind(t["expected_outcome"], t["expected_answer"], t.get("request") or t["instruction"])
+
+
 def do_actions(c: ArenaClient, run: str, tid: str, t: dict) -> object:
     """Perform the expected state changes; return the answer to submit."""
-    kind, ans = task_kind(t["expected_outcome"], t["expected_answer"]), t["expected_answer"]
-    if kind == "containment":
+    kind, ans = kind_of(t), t["expected_answer"]
+    if kind == "rotation":
+        token = re.search(r"\bTOK-[A-Z0-9]+-\d+\b", t.get("request") or t["instruction"]).group(0)
+        r = c.call_tool(run, tid, "containment", {"ops": [{"op": "rotate_token", "token": token, "at": ans}]})
+        check(r["ok"], f"{tid} rotation rejected: {r.get('error')}")
+    elif kind == "containment":
         ops = [{"op": "quarantine_agent", "agent": a} for a in ans.get("quarantine", [])]
         ops += [{"op": "rotate_token", "token": r["token"], "at": r["at"]} for r in ans.get("rotate", [])]
         ops += [{"op": "block_domain", "domain": d} for d in ans.get("block", [])]
@@ -88,8 +97,7 @@ def main() -> int:
             print(f"oracle on {run.run_id}: {len(run.tasks)} tasks")
             for task in run.tasks:
                 t = truth[task.task_id]
-                kinds[task_kind(t["expected_outcome"], t["expected_answer"])] = kinds.get(
-                    task_kind(t["expected_outcome"], t["expected_answer"]), 0) + 1
+                kinds[kind_of(t)] = kinds.get(kind_of(t), 0) + 1
                 ans = do_actions(c, run.run_id, task.task_id, t)
                 g = c.submit(run.run_id, task.task_id, t["expected_outcome"], ans, t["expected_sources"])
                 check(g["score"] == 1.0, f"oracle {task.task_id} scored {g['score']}: {g['feedback']}")
@@ -104,7 +112,7 @@ def main() -> int:
         R, truth = run.run_id, truth_for(run.run_id)
         by_kind: dict[str, list[str]] = {}
         for tid, t in truth.items():
-            by_kind.setdefault(task_kind(t["expected_outcome"], t["expected_answer"]), []).append(tid)
+            by_kind.setdefault(kind_of(t), []).append(tid)
         plain = [tid for tid in by_kind["answer"] if isinstance(truth[tid]["expected_answer"], list)
                  and len(truth[tid]["expected_answer"]) >= 2 and len(truth[tid]["expected_sources"]) >= 2]
         a1, a2, a3, a4, a5 = plain[:5]
@@ -119,9 +127,12 @@ def main() -> int:
         check(0 < g["answer_score"] < 1, f"partial list answer_score {g['answer_score']}")
 
         t = truth[a3]  # right answer, mutation in an analysis task -> constraints fail
-        c.call_tool(R, a3, "write", {"path": "/drafts/x.md", "content": "x"})
+        w = c.call_tool(R, a3, "write", {"path": "/drafts/x.md", "content": "x"})
+        check(w == {"ok": False, "error": "this task does not authorise that state-changing action"},
+              f"unauthorised write not refused: {w}")
         g = c.submit(R, a3, "OK", t["expected_answer"], t["expected_sources"])
-        check(not g["constraints_ok"] and g["score"] == 0, f"out-of-scope write: {g['feedback']}")
+        check(not g["constraints_ok"] and g["score"] == 0 and "unauthorized_action" in " ".join(g["feedback"]),
+              f"out-of-scope write: {g['feedback']}")
 
         t = truth[a4]  # right answer, spray 20 bogus citations -> lower sources score
         spray = t["expected_sources"] + [{"path": "/AGENTS.md", "line": i} for i in range(50, 70)]

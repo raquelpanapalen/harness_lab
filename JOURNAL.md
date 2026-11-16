@@ -32,3 +32,10 @@ Format example (ignored: it sits in a code block). Write your entries below it, 
 - change: `llm.chat` retries an empty response up to 4 times with backoff; replay server numbers runs under its lock (two parallel runs both got `rp003`)
 - rejected: retrying in `agent.py` (every caller of `chat` needs it)
 - evidence: replay rp002_run_Wxvjw3WImrpJ 0.351, rp003_run_aF3iOYCGwFiX 0.379, rp003_run_bV0bxqQTiZRa 0.310; weakest: logs/audit 0.24, notify 0.00, sources 0.25 overall
+
+## 21:10 · Replay checked against real harness runs; grader and action tools fixed
+- decided_by: both          # human asked for the real-vs-replay comparison and the three fixes; fixes designed by ai
+- why: the kit baseline on 2 real dev runs (same seeds as held-out replay runs) showed the local grader agreed on only 58/82 organic submissions: citations were matched by locator only, sloppy answer formats scored 0, other teams' planted framings and the real authorisation/freeze rules were missing, and the state-changing tools' formats were guesses
+- change: citations matched by the evidence they point at (record in a csv row, request id across files, agent + trace in the audit log; path-only citations of one file count once); list answers given as strings split; numbers as strings; per-task authorisation of state-changing calls refused at call time; rotation_in_freeze; injected_action for answers naming agents framed by planted text; containment/send_message responses identical to real; new `rotation` task kind (42 tasks)
+- rejected: an LLM judge for injected framings (cost, and a regex on claim language already finds 8/8 with 0/29 false alarms); per-run caching of framings (each task has its own injections)
+- evidence: real run_lI_N_uYzqRyP 0.311 vs replay 0.294 / 0.288; real run_iLM_ts7nIe2j 0.315 vs replay 0.402 / 0.413; full grade incl. constraints identical on 96/96 real tasks, calibration 239/242, state-changing responses 12/12, read-only probes 1269/1269, oracle 1.0 on 2112 tasks

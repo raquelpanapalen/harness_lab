@@ -28,7 +28,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from replay import tools as T  # noqa: E402
-from replay.grade import grade  # noqa: E402
+from replay.grade import AUTHORISED, grade, task_kind  # noqa: E402
 
 HERE = Path(__file__).resolve().parent.parent
 CONTENT_TYPES = {"pdf": "application/pdf", "jpg": "image/jpeg", "png": "image/png", "json": "application/json",
@@ -100,6 +100,9 @@ class Replay:
             if tools_rec.exists():
                 rec_tree = (json.loads(tools_rec.read_text()).get("tree") or {}).get("result")
             ws = T.Workspace(files_by_task[tid], self.store.blobs, self.store.page_counts, d["intel"], rec_tree)
+            truth = d["revealed"][tid]
+            ws.authorized = AUTHORISED.get(task_kind(truth.get("expected_outcome"), truth.get("expected_answer"),
+                                                     truth.get("request") or t.get("instruction", "")), set())
             tasks[tid] = {"meta": t, "ws": ws, "tool_calls": 0, "submission": None, "grade": None,
                           "truth": d["revealed"][tid]}
         sess = {"run_id": run_id, "src": src, "run": d["run"], "tasks": tasks, "status": "active",
