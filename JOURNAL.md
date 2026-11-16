@@ -13,3 +13,15 @@ Format example (ignored: it sits in a code block). Write your entries below it, 
 - rejected: regex filter (misses base64), main model only (cost)
 - evidence: run_abc → run_def, t07 0.31 → 0.78, cost −40 %
 ```
+
+## 21:37 · Offline dataset + local replay server for evaluation
+- decided_by: human
+- why: post-event, so iterate offline instead of on live dev runs; harvested dev runs give tasks, workspaces and revealed answers at $0 model cost
+- rejected: only the kit's 2-task mock (too small to measure anything); building a scenario generator (can't match theirs)
+- evidence: 13 harvested runs (624 tasks, theme hub); replay `tree` byte-identical on 528 recorded tasks; oracle scores 1.0 on all 528 tasks of the first 11 runs; threat_intel backfilled via seed replay (15/15 spot-checked verdicts identical)
+
+## 17:56 · Go fully local: 44-run dataset, replay matched to real tool outputs and grader
+- decided_by: human
+- why: no final submission planned; iterate offline on the replay instead of live dev runs
+- rejected: more live dev runs per experiment (other teams' attacks still in the pool make them noisy; e.g. injected_action:t18-p4 in calibration run_Crk_0XtUy41q)
+- evidence: 44 runs / 2112 tasks; 1269/1269 recorded real tool responses identical in replay; grader fitted on 249 real graded variants (246 agree); calibration runs run_Crk_0XtUy41q, run_icytTabjDbdw, run_DODDwIETh7Rd, run_UzP-XT7I2hbJ, run_YyvYOlNqL5IT

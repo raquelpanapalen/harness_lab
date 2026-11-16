@@ -1,7 +1,23 @@
-# Harness Arena: Python starter kit
+# Harness Lab
 
-A Task API client plus a deliberately simple baseline agent (a tool-calling loop on the fixed small model, optional Jev example).
+A local lab for building and evaluating agents for Harness Arena: an offline replay of the arena (44 recorded real runs, matching tool outputs, a calibrated grader) plus the agent harness built on it.
+Based on the Harness Arena Python starter kit: a Task API client plus a deliberately simple baseline agent (a tool-calling loop on the fixed small model, optional Jev example).
 Fork it, break it, make it better. Only the harness is yours to improve: the models are fixed.
+
+## Local development (offline replay)
+
+This fork develops fully offline: `harvester/` saved 44 real dev runs (2,112 tasks, files, expected answers, recorded
+tool outputs) and `harvester/replay/` serves them as a local Task API with a grader calibrated against the real one.
+No arena key is needed for this loop; only model calls cost money.
+
+```bash
+uv run harvester/replay/server.py --exclude-runs 5    # local arena on :3998, newest 5 runs held out
+ARENA_BASE_URL=http://localhost:3998 ARENA_API_KEY=arena_local \
+  uv run main.py --kind dev --level 1 --limit 6 --note "hypothesis"
+uv run harvester/replay/server.py --only-runs 5       # then measure on the held-out runs
+```
+
+Details, flags and known gaps: [`harvester/README.md`](harvester/README.md). Full Task API reference: [`docs.md`](docs.md).
 
 ## Setup
 
@@ -87,6 +103,8 @@ git archive -o submission.tar.gz HEAD     # committed files only (no .env), JOUR
 | `Dockerfile` | The image the organisers build and run |
 | `tests/mock_server.py` | Offline fake Task API with a 2-task toy workspace (`python tests/mock_server.py 3999`) |
 | `tests/test_offline.py`, `tests/test_cache.py`, `tests/test_runs.py` | Offline tests, no network or model calls (`uv run python tests/test_runs.py`) |
+| `docs.md` | The event's Task API docs (endpoints, scoring, Break it, final) |
+| `harvester/` | Dataset harvester, local replay server and grader calibration (dev only; see its README) |
 | `slides/` | Opening slides (PDF, PPTX). Not part of your submission (`export-ignore`) |
 
 ## The Task API (v1)
