@@ -16,15 +16,28 @@ import harness  # noqa: E402
 from arena import llm  # noqa: E402
 from arena.client import ArenaError, Run, Task  # noqa: E402
 from harness.machine import HANDLERS, Ctx, Deadlines, run_task  # noqa: E402
+from harness.pacing import Pacer  # noqa: E402
 from harness.state import State, TaskRecord, answer_shape, empty_submission  # noqa: E402
+
+# No model calls in these tests: intake's Jev call answers "compromised" with certainty.
+JEV_ANSWER = {"family": {"type": "choice", "choice": "compromised", "probabilities": {"compromised": 0.99}}}
+Pacer.decide = lambda self, state, questions, **kw: JEV_ANSWER  # type: ignore[method-assign]
 
 
 class FakeClient:
     base_url = "http://fake"
 
-    def __init__(self, fail_with: list[ArenaError] | None = None):
+    def __init__(self, fail_with: list[ArenaError] | None = None, files: dict[str, str] | None = None):
         self.submits: list[tuple] = []
         self.fail_with = list(fail_with or [])
+        self.files = files or {}
+        self.throttle = None
+
+    def task_manifest(self, run_id, task_id, refresh=False):
+        return {p: {"path": p} for p in self.files}
+
+    def download_file(self, run_id, task_id, path):
+        return self.files[path].encode(), "text/plain"
 
     def submit(self, run_id, task_id, outcome, answer, sources=None):
         if self.fail_with:

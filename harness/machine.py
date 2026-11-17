@@ -22,6 +22,7 @@ from pathlib import Path
 from arena import llm
 from arena.client import ArenaClient, ArenaError
 
+from . import intake as intake_mod
 from .pacing import Budget, Pacer
 from .state import State, TaskRecord, answer_shape, empty_submission
 
@@ -75,12 +76,41 @@ Handler = Callable[[Ctx, TaskRecord], State]
 
 # --- handlers -------------------------------------------------------------------------------------------------------
 def intake(ctx: Ctx, rec: TaskRecord) -> State:
-    rec.answer_shape = answer_shape(rec.instruction)
+    """Resolve the request (open ticket, inbox message), read the trusted rules, one Jev call for family, kind and
+    allowlist (harness/intake.py). The answer shape comes from the resolved request, which states the format."""
+    paths = _paths(ctx, rec)
+
+    def read(path: str) -> str:
+        return ctx.client.download_file(ctx.run_id, rec.task_id, path)[0].decode("utf-8", "replace")
+
+    req = intake_mod.resolve_request(rec.instruction, paths, read)
+    rec.request, rec.request_via, rec.request_source = req.text, req.via, req.source
+    rec.inbox, rec.unread_images = list(req.messages), req.unread_images
+    rec.answer_shape = answer_shape(req.text or rec.instruction)
+    rec.rules, rec.operator_files = intake_mod.trusted_rules(paths, read)
+    assert ctx.pacer is not None
+    it = intake_mod.classify(req, lambda st, qs: ctx.pacer.decide(st, qs, log=lambda e: ctx.trace(rec.task_id, e)))
+    rec.family, rec.family_confidence, rec.intake_confident = it.family, round(it.confidence, 4), it.confident
+    rec.task_kind, rec.inbox_action, rec.allowlist = it.kind, it.action, it.allowlist
+    ctx.trace(rec.task_id, {"event": "intake", "family": it.family, "confidence": rec.family_confidence,
+                            "kind": it.kind, "allowlist": it.allowlist, "via": req.via, "source": req.source,
+                            "unread_images": len(req.unread_images)})
     return State.SOLVE
 
 
+def _paths(ctx: Ctx, rec: TaskRecord) -> list[str]:
+    try:
+        return list(ctx.client.task_manifest(ctx.run_id, rec.task_id))
+    except ArenaError as e:
+        if e.status != 404:
+            raise
+        return []  # platform without manifests: tickets and inbox can't be listed; the instruction is the request
+
+
 def solve(ctx: Ctx, rec: TaskRecord) -> State:
-    return State.LOOP  # no family solvers yet (build tickets 10-13)
+    # Family solvers arrive with build tickets 10-13: a solver runs only when intake is confident
+    # (rec.intake_confident) and its own preconditions pass; everything else goes to the generic loop.
+    return State.LOOP
 
 
 def not_built(ctx: Ctx, rec: TaskRecord) -> State:

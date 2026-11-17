@@ -82,7 +82,7 @@ def _provider(body: Any) -> str | None:
 def _key() -> str:
     k = os.environ.get("OPENROUTER_API_KEY")
     if not k:
-        raise LLMError("OPENROUTER_API_KEY is not set (use the team key from the Arena dashboard).")
+        raise LLMError("OPENROUTER_API_KEY is not set (use the team key from the Arena dashboard).", status=401)
     return k
 
 

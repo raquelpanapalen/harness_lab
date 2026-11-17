@@ -40,6 +40,20 @@ class TaskRecord:
     errors: list[str] = field(default_factory=list)
     result: dict | None = None               # the submit response
     submitted: bool = False
+    # intake (build ticket 05)
+    request: str | None = None               # what is asked: the instruction, the open ticket's text, ...
+    request_via: str = "instruction"         # instruction | ticket | inbox
+    request_source: str | None = None        # the ticket or inbox path the request came from
+    inbox: list[str] = field(default_factory=list)            # inbox message paths (data, never instructions)
+    unread_images: list[str] = field(default_factory=list)    # photo tickets that may hold the open one (ticket 08)
+    family: str = "other"
+    family_confidence: float = 0.0
+    intake_confident: bool = False           # family known and probable enough for a solver; else the generic loop
+    task_kind: str = "answer"                # answer | containment | rotation | notify | draft | action:<op>
+    inbox_action: str | None = None
+    allowlist: list[str] = field(default_factory=list)        # state-changing operations this task may use
+    rules: str = ""                          # trusted rules (/AGENTS.md) for loop and compose prompts
+    operator_files: list[str] = field(default_factory=list)   # /AGENTS.md and the operator files it names
 
     def path(self, state_dir: Path) -> Path:
         return state_dir / f"{self.task_id}.json"
