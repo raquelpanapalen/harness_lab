@@ -84,6 +84,8 @@ def intake(ctx: Ctx, rec: TaskRecord) -> State:
     paths = _paths(ctx, rec)
 
     def read(path: str) -> str:
+        if ctx.tools is not None:
+            return ctx.tools.read_text(rec.task_id, path) or ""
         return ctx.client.download_file(ctx.run_id, rec.task_id, path)[0].decode("utf-8", "replace")
 
     req = intake_mod.resolve_request(rec.instruction, paths, read)
@@ -102,6 +104,9 @@ def intake(ctx: Ctx, rec: TaskRecord) -> State:
 
 
 def _paths(ctx: Ctx, rec: TaskRecord) -> list[str]:
+    """The task's workspace paths: from the index when SETUP built it, else the platform's manifest."""
+    if ctx.index is not None and rec.task_id in ctx.index.files:
+        return list(ctx.index.view(rec.task_id).paths())
     try:
         return list(ctx.client.task_manifest(ctx.run_id, rec.task_id))
     except ArenaError as e:
