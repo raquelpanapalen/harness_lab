@@ -11,10 +11,13 @@ allowlist. The argument guards and the repair round come with build ticket 07; u
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 from . import normalise
 from .loop import REQUEST_CHARS, notebook_text
+
+LAST_COMPOSE_CHARS = 4000   # the loop's latest tool results, also shown to compose
 from .state import TaskRecord
 
 OUTCOMES = ("OK", "DENIED_SECURITY", "NEEDS_CLARIFICATION", "UNSUPPORTED")
@@ -50,9 +53,10 @@ def prompt(rec: TaskRecord, view: Any) -> list[dict]:
     user = (f"TASK:\n{(rec.request or rec.instruction)[:REQUEST_CHARS]}\n\n"
             f"RULES (trusted):\n{rec.rules or '(none)'}\n\n"
             f"NOTEBOOK (facts with the handles of their evidence):\n{notebook_text(view, rec.notes)}\n\n"
+            f"LATEST TOOL RESULTS:\n<data>\n{rec.loop_last[:LAST_COMPOSE_CHARS] or '(none)'}\n</data>\n\n"
             f"{acts}\n\n"
             "Return JSON: {\"outcome\": one of " + "/".join(OUTCOMES) + ", \"answer\": " + _shape_hint(rec.answer_shape)
-            + ", \"cite\": [handles of the evidence the answer rests on, one per answer item, from the notebook], "
+            + ", \"cite\": [handles of the evidence the answer rests on, one per answer item], "
             "\"actions\": [...]}. Use OK unless the RULES' outcome definitions clearly apply; a refusal does no action "
             "and answers as the RULES say. Use exact ids and values from the notebook; timestamps in UTC "
             "YYYY-MM-DDTHH:MM:SSZ.")
@@ -100,10 +104,13 @@ def build_draft(rec: TaskRecord, view: Any, d: dict, with_actions: bool = True) 
         value = None
     carriers = {p for p in [rec.request_source, *rec.inbox] if p}
     noted = {json.dumps(s, sort_keys=True) for n in rec.notes for s in n["sources"]}
+    shown = set(re.findall(r"\[(E\d+)\]", rec.loop_last[:LAST_COMPOSE_CHARS]))
 
-    def resolve(h: str):  # only handles that back a notebook fact may be cited
+    def resolve(h: str):  # only handles compose was shown (notebook facts, latest results) may be cited
         u = view.resolve(h) if view is not None else None
-        return u if u is not None and json.dumps(u.source(), sort_keys=True) in noted else None
+        if u is None:
+            return None
+        return u if h.strip() in shown or json.dumps(u.source(), sort_keys=True) in noted else None
     cite = d.get("cite") if isinstance(d.get("cite"), list) else []
     srcs = normalise.sources([str(h) for h in cite], resolve, value, outcome, carriers)
     actions = allowed_actions(d.get("actions"), rec.allowlist) if with_actions and outcome == "OK" else []

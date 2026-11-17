@@ -115,7 +115,9 @@ def prompt(rec: TaskRecord, view: Any, last: str, cap: int) -> list[dict]:
             f"OPERATOR FILES (definitions): {ops}\n\n"
             f"RULES (trusted):\n{rec.rules or '(none)'}\n\n"
             f"NOTEBOOK:\n{notebook_text(view, rec.notes)}\n\n"
-            f"STEP {rec.loop_steps + 1} of {cap}. LATEST TOOL RESULTS:\n<data>\n{last or '(none yet)'}\n</data>")
+            f"STEP {rec.loop_steps + 1} of {cap}. LATEST TOOL RESULTS:\n<data>\n{last or '(none yet)'}\n</data>\n\n"
+            "Now: first call note once for each fact in the latest results that the answer needs (with its [E..] "
+            "handles; these results disappear after this step), then call the next tools, or done.")
     return [{"role": "system", "content": SYSTEM}, {"role": "user", "content": user}]
 
 
