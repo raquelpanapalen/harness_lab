@@ -27,7 +27,7 @@ from . import compose as compose_mod
 from . import intake as intake_mod
 from . import loop as loop_mod
 from . import guards
-from . import vision
+from . import solvers, vision
 from .pacing import Budget, Pacer
 from .state import State, TaskRecord, answer_shape, empty_submission
 
@@ -124,9 +124,9 @@ def _paths(ctx: Ctx, rec: TaskRecord) -> list[str]:
 
 
 def solve(ctx: Ctx, rec: TaskRecord) -> State:
-    # Family solvers arrive with build tickets 10-13: a solver runs only when intake is confident
-    # (rec.intake_confident) and its own preconditions pass; everything else goes to the generic loop.
-    return State.LOOP
+    """Family solvers (harness/solvers): only when intake is confident, the family's solver is enabled and its own
+    preconditions pass; a confident answer goes to CHECK, anything else (with the solver's notes) to the loop."""
+    return solvers.run(ctx, rec)
 
 
 def not_built(ctx: Ctx, rec: TaskRecord) -> State:

@@ -788,7 +788,8 @@ class Facts:
                     u = self.v.find({"path": ch["path"], "line": a["line"]})
                     out[a["ticket"]].append(u) if u else None
             sources = [ch["path"]] if ch["path"] else []
-            sources += [p for p in self.v.paths() if "handover" in p.lower() and not p.startswith("/artifacts/")]
+            sources += [p for p in self.v.paths() if re.search(r"handover|on[-_ ]?call", p.rsplit("/", 1)[-1].lower())
+                        and not p.startswith(("/artifacts/", "/notes/", "/inbox/"))]  # the on-call handover (tier 2)
             for p in sources:
                 for u in self.v.units(p)[1:]:
                     low = u.text.lower()
