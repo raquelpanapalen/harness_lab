@@ -58,7 +58,9 @@ Charting decisions (made with the human while naming the destination; not ticket
 The destination is reached: [SPEC.md](SPEC.md) consolidates every decision. Left to the build:
 
 - Prompt wording per stage: settled by measuring Score on development runs.
-- Slicing the spec into build tickets (the hand-off).
+
+The hand-off is done: the spec is sliced into 15 build tickets, [build/README.md](build/README.md) (01–03 and 05 done
+as of 2026-11-17).
 
 ## Out of scope
 
