@@ -211,24 +211,34 @@ def _cell(v):
     return json.dumps(v, ensure_ascii=False)
 
 
+_TIMELIKE = re.compile(r"^\d{1,4}[./-]\d{1,2}[./-]\d{1,4}")
+
+
 def _csv(path: str, text: str, doc: Doc) -> None:
-    """One unit per data row: `record` = first column (docs), `line` as the alternative (archive logs are cited by
-    line). A quoted field may span lines, so lines are tracked by the reader."""
+    """One unit per data row. Rows are cited by `record` (the first column, docs) when that column is an id: unique
+    and not a date or time; otherwise by `line` (the CET archive log starts with its timestamp). The other locator is
+    kept as the alternative. A quoted field may span lines, so lines are tracked by the reader."""
     reader = csv.reader(io.StringIO(text))
     try:
         head = next(reader)
     except StopIteration:
         return
     detail_cols = [i for i, h in enumerate(head) if h.strip().lower() == "detail"]
-    width, rows, start = len(head), [], reader.line_num + 1
+    width, rows, parsed, start = len(head), [], [], reader.line_num + 1
     for row in reader:
         line, start = start, reader.line_num + 1
-        if not any(c.strip() for c in row):
-            continue
+        if any(c.strip() for c in row):
+            parsed.append((line, row))
+    firsts = [r[0].strip() for _, r in parsed if r and r[0].strip()]
+    ids = len(set(firsts)) == len(firsts) and not any(_TIMELIKE.match(x) for x in firsts)
+    for line, row in parsed:
         raw = ",".join(row)
         detail = " ".join(row[i] for i in detail_cols if i < len(row)) if detail_cols else None
         rec = row[0].strip() if row else ""
-        loc, alts = ({"record": rec}, ({"line": line},)) if rec else ({"line": line}, ())
+        if rec and ids:
+            loc, alts = {"record": rec}, ({"line": line},)
+        else:
+            loc, alts = {"line": line}, (({"record": rec},) if rec else ())
         doc.units.append(_unit(path, "record", loc, raw, _flags(raw, detail), alts))
         rows.append((row + [""] * width)[:width] + [line])
     doc.tables[""] = Table("", _colnames(head) + ["_line"], rows)
@@ -278,6 +288,9 @@ def _json(path: str, text: str, doc: Doc) -> None:
 def _sheet_units(path: str, doc: Doc, sheet: str, rows: list[tuple[int, list[str], bool, list[str]]]) -> None:
     """rows: (1-based row number, cell texts, hidden, comments on the row)."""
     tab_rows, head = [], None
+    # The header is the first row as wide as the table (title and note rows above it are text, not columns).
+    width = max((sum(1 for c in cells if c.strip()) for _, cells, _, _ in rows), default=0)
+    head_at = next((r for r, cells, _, _ in rows if sum(1 for c in cells if c.strip()) >= max(2, width * 0.6)), None)
     for r, cells, hidden, comments in rows:
         if not any(c.strip() for c in cells) and not comments:
             continue
@@ -289,6 +302,8 @@ def _sheet_units(path: str, doc: Doc, sheet: str, rows: list[tuple[int, list[str
         first = cells[0].strip() if cells else ""
         doc.units.append(_unit(path, "row", {"sheet": sheet, "row": r}, f"[{sheet}] {text}", why,
                                ({"record": first},) if first else ()))
+        if head_at is None or r < head_at:
+            continue
         if head is None:
             head = cells
         else:
