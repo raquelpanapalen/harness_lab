@@ -576,6 +576,26 @@ class Index:
                 v._stats = None
             return full
 
+    def attach_text(self, sha: str, path: str, text: str) -> int:
+        """Attach a transcript (image read by the vision model, build ticket 08) to the blob's Doc: one unit per
+        non-empty line, cited by path only (loc {}), always untrusted. Replaces an earlier transcript of the same blob.
+        Returns the number of units added."""
+        with self.lock:
+            doc = self.docs.get(sha)
+            if doc is None:
+                return 0
+            base = [u for u in doc.units if "image-transcript" not in u.why]
+            extra = [_unit(path, "part", {}, line.strip(), ("image-transcript",)) for line in text.splitlines()
+                     if line.strip()]
+            doc.units = base + extra
+            for i, u in enumerate(doc.units):
+                u.uid = f"{sha[:12]}:{i}"
+            doc.lines = None
+            doc.build_postings()
+            for v in self._views.values():
+                v._stats = None
+            return len(extra)
+
     # -- per task --
     def view(self, task_id: str) -> TaskView:
         with self.lock:

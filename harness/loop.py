@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from . import vision
 from .state import State, TaskRecord
 
 STEP_CAPS = {1: 6, 2: 8, 3: 10}
@@ -135,6 +136,8 @@ def _units_out(view: Any, units: list, header: str = "") -> str:
 
 def run_tool(ctx: Any, rec: TaskRecord, view: Any, name: str, args: dict) -> str:
     tid = rec.task_id
+    if name in ("search", "read") and args.get("path") and vision.is_image(str(args["path"])):
+        vision.of(ctx).transcribe(tid, "/" + str(args["path"]).lstrip("/"), lambda e: ctx.trace(tid, e))
     if name == "search":
         hits = view.search(str(args.get("query", "")), args.get("path") or None, k=12)
         return _units_out(view, [u for _, u in hits])
@@ -210,6 +213,10 @@ def step(ctx: Any, rec: TaskRecord) -> State:
     if ctx.index is None or rec.task_id not in ctx.index.files or rec.loop_done or rec.loop_steps >= cap:
         return State.COMPOSE
     view = ctx.index.view(rec.task_id)
+    if rec.loop_steps == 0:  # images the operator files name (the signed standing order): read once per run
+        for p in rec.operator_files:
+            text = ctx.tools.read_text(rec.task_id, p) if ctx.tools is not None else None
+            vision.of(ctx).transcribe_named(rec.task_id, text or "", view.paths(), lambda e: ctx.trace(rec.task_id, e))
     limit = [LAST_CHARS]
     messages = prompt(rec, view, rec.loop_last[:limit[0]], cap)
     while estimate_tokens(messages) > PROMPT_TOKENS and limit[0] > 500:

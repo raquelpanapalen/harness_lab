@@ -26,6 +26,7 @@ from arena.client import ArenaClient, ArenaError
 from . import compose as compose_mod
 from . import intake as intake_mod
 from . import loop as loop_mod
+from . import vision
 from .pacing import Budget, Pacer
 from .state import State, TaskRecord, answer_shape, empty_submission
 
@@ -90,7 +91,11 @@ def intake(ctx: Ctx, rec: TaskRecord) -> State:
             return ctx.tools.read_text(rec.task_id, path) or ""
         return ctx.client.download_file(ctx.run_id, rec.task_id, path)[0].decode("utf-8", "replace")
 
-    req = intake_mod.resolve_request(rec.instruction, paths, read)
+    log = lambda e: ctx.trace(rec.task_id, e)  # noqa: E731
+    vis = vision.of(ctx)
+    req = intake_mod.resolve_request(rec.instruction, paths, read, lambda p: vis.transcribe(rec.task_id, p, log))
+    if req.text:  # images the request names (scanned pages, screenshots) are read now
+        vis.transcribe_named(rec.task_id, req.text, paths, log)
     rec.request, rec.request_via, rec.request_source = req.text, req.via, req.source
     rec.inbox, rec.unread_images = list(req.messages), req.unread_images
     rec.answer_shape = answer_shape(req.text or rec.instruction)

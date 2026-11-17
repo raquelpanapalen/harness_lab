@@ -21,6 +21,8 @@ from dataclasses import dataclass, field
 
 from arena import llm
 
+from . import vision
+
 # --- catalogue ------------------------------------------------------------------------------------------------------
 # Option keys are the family ids the solvers use. Descriptions are short on purpose: every token here is paid for on
 # every task (target ≤ $0.001 of Jev per run).
@@ -139,9 +141,14 @@ def resolve_request(instruction: str, paths: list[str], read: Callable[[str], st
         tickets = sorted(p for p in paths if p.startswith("/tickets/"))
         images = [p for p in tickets if p.lower().endswith(_IMAGE_EXT)]
         for p in [p for p in tickets if p.lower().endswith(_TEXT_EXT)] + (images if transcribe else []):
-            text = transcribe(p) if p in images and transcribe else read(p)
-            if ticket_status(text) == "open":
-                req = Request(text=front_matter(text)[1].strip() or text, via="ticket", source=p)
+            if p in images:  # a photo of the printout: the status is a stamp (build ticket 08)
+                text = transcribe(p)
+                status, body = vision.stamp_status(text), vision.body(text)
+            else:
+                text = read(p)
+                status, body = ticket_status(text), front_matter(text)[1].strip()
+            if status == "open":
+                req = Request(text=body or text, via="ticket", source=p)
                 break
         else:
             req = Request(text=None, via="ticket", unread_images=[] if transcribe else images)
