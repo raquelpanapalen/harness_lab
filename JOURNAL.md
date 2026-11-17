@@ -116,3 +116,10 @@ Format example (ignored: it sits in a code block). Write your entries below it, 
 - change: harness/state.py + harness/machine.py (handler per state, fallback edge from every state, hard deadline, records saved per transition), run-level resume via runs/ACTIVE.json (`--fresh` to override); unbuilt stages fall back to a right-shaped empty answer
 - rejected: per-task try/except in a loop (the kit's approach: drops the task on the first error)
 - evidence: tests/test_lab_machine.py; replay rp005_run_zJJcgkSZFc-3 48/48 submitted at $0 (Score 0.000); crash/resume rp006_run_Yb6jXZ908-nH 10 + 38 = 48/48
+
+## 14:40 · Build 03: one pacer for model and Task API calls
+- decided_by: ai          # build ticket 03, implementing the human-accepted resilience decisions
+- why: 47/96 baseline points were tasks dropped on 429/400; the SDK's fixed 5 retries give up in ~17 s and know nothing about the run's deadline or the $3 limit
+- change: harness/pacing.py (per-endpoint caps, adaptive Gemma limit, deadline-bounded jittered backoff, 400 → shrink, 403 → stop all model calls); budget watcher $0.50/$1.00 and soft/hard deadlines checked before every state; solver-confident tasks run before loop tasks; LLMError carries status/provider/body; SDK retries off under the pacer
+- rejected: keeping the SDK's built-in retries (attempt-capped, blind to the deadline, no adaptive limit); a 403 detected per task (other tasks keep calling until each sees its own 403)
+- evidence: tests/test_lab_pacing.py; replay rp007_run_NT6kzGi5K2iQ (403 after 15 calls → 48/48 submitted), rp008_run_OA72gAU9T7pb (48/48 at $0)
