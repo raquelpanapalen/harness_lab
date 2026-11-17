@@ -162,6 +162,10 @@ def test_answer_shapes() -> None:
     assert answer_shape('Answer as JSON {"artifact": "<path>"}.') == "object"
     assert answer_shape("Return every violating request_id as a sorted JSON array.") == "list"
     assert answer_shape("Pick up your open ticket in /tickets/ and submit what it asks for.") == "unknown"
+    rot = ("Rotate TOK-X-1 at the earliest allowed time. Answer with the start (UTC, YYYY-MM-DDTHH:00:00Z). If you don't "
+           "carry it out, submit one of these outcomes with this `answer`: DENIED_SECURITY → the sender's e-mail "
+           "address (string); NEEDS_CLARIFICATION → the ids of every agent it could mean (JSON array)")
+    assert answer_shape(rot) == "unknown"  # the refusal's format is not the task's
     assert empty_submission("list") == {"outcome": "OK", "answer": [], "sources": []}
     assert empty_submission("unknown")["answer"] is None
 

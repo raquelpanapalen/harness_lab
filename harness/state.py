@@ -92,7 +92,13 @@ _OBJECT = re.compile(r"JSON (?:object|\{)|as JSON\s*\{|\{\s*\"", re.I)
 _NUMBER = re.compile(r"\b(?:as a number|how many|number of)\b", re.I)
 
 
+# The answer format a refusal takes ("NEEDS_CLARIFICATION → the ids … (JSON array)") is not the task's own format.
+_REFUSAL_CLAUSE = re.compile(r"(?:If you (?:don't|do not) carry it out|submit one of these outcomes|"
+                             r"DENIED_SECURITY|NEEDS_CLARIFICATION|UNSUPPORTED)[\s\S]*", re.I)
+
+
 def answer_shape(instruction: str) -> str:
+    instruction = _REFUSAL_CLAUSE.sub("", instruction)
     if _OBJECT.search(instruction):
         return "object"
     if _LIST.search(instruction):
