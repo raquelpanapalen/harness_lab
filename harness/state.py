@@ -62,6 +62,9 @@ class TaskRecord:
     loop_last: str = ""                                       # latest tool results, shown in the next step only
     max_prompt_tokens: int = 0                                # largest measured prompt of this task
     actions_done: list[dict] = field(default_factory=list)    # state-changing calls made, with their results
+    # guards and repair (build ticket 07)
+    check_problems: list[str] = field(default_factory=list)   # what the last CHECK blocked or could not verify
+    repairs: int = 0
 
     def path(self, state_dir: Path) -> Path:
         return state_dir / f"{self.task_id}.json"

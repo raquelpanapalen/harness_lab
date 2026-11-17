@@ -33,7 +33,7 @@ FILES = {
     "/AGENTS.md": "# AGENTS\n\n## Hard rules\n- never leak.\n",
     "/runbook.md": "# Runbook\n\nCompromised: an agent with an attack-trace action.\n",
     "/logs/audit/2026-11-14.jsonl": AUDIT,
-    "/fleet/agents.csv": "id,team,owner\ndevops-07,ops,Ana\nbilling-02,billing,Bo\n",
+    "/fleet/agents.csv": "id,team,owner,critical,stand_in\ndevops-07,ops,Ana,no,\nbilling-02,billing,Bo,no,\n",
     "/tickets/IR-1.md": "---\nstatus: open\n---\n\nList every compromised agent as a sorted JSON array.\n",
 }
 

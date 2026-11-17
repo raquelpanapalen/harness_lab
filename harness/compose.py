@@ -3,10 +3,9 @@
 The model sees the task, the trusted rules, the answer shape, the allowed actions with their argument formats, and the
 notebook with handles. It returns `{outcome, answer, cite, actions}`; code normalises the answer, turns the cited
 handles into the evidence units' locators (only handles from the notebook count) and keeps only actions on the
-allowlist. The argument guards and the repair round come with build ticket 07; until then:
-- a refusal (non-OK outcome) is kept only for requests to act (an inbox message or a task with allowed actions) and
-  otherwise turned into OK, and a refusal never carries actions;
-- an action runs only if its operation is on the task's allowlist.
+allowlist. A refusal (non-OK outcome) is kept only for requests to act (an inbox message or a task with allowed
+actions) and never carries actions. The guards (harness/guards.py) check the rest; a failed check comes back here once
+as `feedback` (the repair round).
 """
 from __future__ import annotations
 
@@ -42,7 +41,7 @@ def _shape_hint(shape: str) -> str:
             "number": "a number"}.get(shape, "the value in the format the task states (null if there is none)")
 
 
-def prompt(rec: TaskRecord, view: Any) -> list[dict]:
+def prompt(rec: TaskRecord, view: Any, feedback: list[str] | None = None) -> list[dict]:
     tools = sorted({"containment" if a.startswith("containment:") else a for a in rec.allowlist})
     ops = [a.split(":", 1)[1] for a in rec.allowlist if a.startswith("containment:")]
     if tools:
@@ -60,6 +59,11 @@ def prompt(rec: TaskRecord, view: Any) -> list[dict]:
             "\"actions\": [...]}. Use OK unless the RULES' outcome definitions clearly apply; a refusal does no action "
             "and answers as the RULES say. Use exact ids and values from the notebook; timestamps in UTC "
             "YYYY-MM-DDTHH:MM:SSZ.")
+    if feedback:
+        prev = {k: v for k, v in (rec.draft or {}).items() if k != "sources"}
+        user += ("\n\nYOUR PREVIOUS DRAFT:\n" + json.dumps(prev, ensure_ascii=False)[:2500] +
+                 "\nIT FAILED THESE CHECKS (fix them; anything still failing is removed before submitting):\n- "
+                 + "\n- ".join(feedback))
     return [{"role": "system", "content": SYSTEM}, {"role": "user", "content": user}]
 
 
@@ -117,9 +121,9 @@ def build_draft(rec: TaskRecord, view: Any, d: dict, with_actions: bool = True) 
     return {"outcome": outcome, "answer": value, "sources": srcs, "actions": actions}
 
 
-def compose(ctx: Any, rec: TaskRecord, with_actions: bool = True) -> dict:
+def compose(ctx: Any, rec: TaskRecord, with_actions: bool = True, feedback: list[str] | None = None) -> dict:
     view = ctx.index.view(rec.task_id) if ctx.index is not None and rec.task_id in ctx.index.files else None
-    msg = ctx.pacer.chat(prompt(rec, view), max_tokens=2000, temperature=0.0,
+    msg = ctx.pacer.chat(prompt(rec, view, feedback), max_tokens=2000, temperature=0.0,
                          response_format={"type": "json_object"}, log=lambda e: ctx.trace(rec.task_id, e))
     usage = msg.get("_usage") or {}
     rec.max_prompt_tokens = max(rec.max_prompt_tokens, int(usage.get("prompt_tokens") or 0))

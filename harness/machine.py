@@ -26,6 +26,7 @@ from arena.client import ArenaClient, ArenaError
 from . import compose as compose_mod
 from . import intake as intake_mod
 from . import loop as loop_mod
+from . import guards
 from . import vision
 from .pacing import Budget, Pacer
 from .state import State, TaskRecord, answer_shape, empty_submission
@@ -144,7 +145,23 @@ def compose(ctx: Ctx, rec: TaskRecord) -> State:
 
 
 def check(ctx: Ctx, rec: TaskRecord) -> State:
-    return State.SUBMIT if rec.draft else State.FALLBACK_SUBMIT  # guards and repair arrive with build ticket 07
+    """The guards (harness/guards.py): fixable problems get one repair round; afterwards the cleaned draft (blocked
+    parts removed) is submitted."""
+    if not rec.draft:
+        return State.FALLBACK_SUBMIT
+    clean, problems = guards.check(ctx, rec, rec.draft)
+    rec.check_problems = [p for p in problems if not p.startswith("(")]
+    ctx.trace(rec.task_id, {"event": "check", "problems": problems, "repairs": rec.repairs})
+    if rec.check_problems and rec.repairs == 0 and ctx.pacer is not None and not ctx.pacer.loop_stop_reason():
+        return State.REPAIR
+    rec.draft = clean
+    return State.SUBMIT
+
+
+def repair(ctx: Ctx, rec: TaskRecord) -> State:
+    rec.repairs += 1
+    rec.draft = compose_mod.compose(ctx, rec, feedback=rec.check_problems)
+    return State.CHECK
 
 
 def submit(ctx: Ctx, rec: TaskRecord) -> State:
@@ -174,6 +191,8 @@ def fallback_submit(ctx: Ctx, rec: TaskRecord) -> State:
         except Exception as e:  # noqa: BLE001 - next rung
             rec.errors.append(f"FALLBACK_SUBMIT compose: {type(e).__name__}: {e}")
     sub = {k: v for k, v in rec.draft.items() if k != "actions"} if rec.draft else empty_submission(shape)
+    if sub.get("answer") is not None:  # outgoing text is rewritten on every path (defang, no secrets)
+        sub["answer"] = guards.rewrite_value(sub["answer"], set(), rec.rules or "")
     try:
         _send(ctx, rec, sub)
     except Exception as e:  # noqa: BLE001 - nothing left to fall back to; record it and stop
@@ -205,7 +224,7 @@ HANDLERS: dict[State, Handler] = {
     State.LOOP: loop,
     State.COMPOSE: compose,
     State.CHECK: check,
-    State.REPAIR: not_built,   # build ticket 07
+    State.REPAIR: repair,
     State.SUBMIT: submit,
     State.FALLBACK_SUBMIT: fallback_submit,
 }
