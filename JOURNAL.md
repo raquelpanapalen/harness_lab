@@ -109,3 +109,10 @@ Format example (ignored: it sits in a code block). Write your entries below it, 
 - change: `main.py --harness baseline|lab` (baseline default); new `harness/` package with a stub entry point; parsers moved from agent.py to arena/parse.py
 - rejected: replacing agent.py in place (loses the reference baseline)
 - evidence: parser parity 46/46 files identical; replay smoke runs rp003_run_NLzokmjwLUfD (lab stub, $0) and rp004_run_ObCe2yzg_xMy (baseline, 1 task, 1.00, $0.011)
+
+## 01:55 · Build 02: per-task state machine that always submits
+- decided_by: ai          # build ticket 02, from the pipeline-architecture decision
+- why: 47/96 baseline points were tasks never submitted; always-submit and resume must hold by construction before any model work
+- change: harness/state.py + harness/machine.py (handler per state, fallback edge from every state, hard deadline, records saved per transition), run-level resume via runs/ACTIVE.json (`--fresh` to override); unbuilt stages fall back to a right-shaped empty answer
+- rejected: per-task try/except in a loop (the kit's approach: drops the task on the first error)
+- evidence: tests/test_lab_machine.py; replay rp005_run_zJJcgkSZFc-3 48/48 submitted at $0 (Score 0.000); crash/resume rp006_run_Yb6jXZ908-nH 10 + 38 = 48/48

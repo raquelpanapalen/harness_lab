@@ -1,0 +1,155 @@
+"""The per-task state machine (SPEC §2): one handler per state returns the next state.
+
+    INTAKE → SOLVE ─┬─ solver confident ─────┐
+                    └─ else → LOOP ──────────┤
+                                             ▼
+                    COMPOSE → CHECK ──ok──→ SUBMIT → DONE
+                                └ fail → REPAIR → CHECK (once)
+    any error, deadline or budget limit ──────────→ FALLBACK_SUBMIT → DONE
+
+Every handler that raises sends the task to FALLBACK_SUBMIT; the hard deadline does too. FALLBACK_SUBMIT always ends
+in DONE, so `run_task` terminates whatever the handlers do. States whose stage isn't built yet go to FALLBACK_SUBMIT.
+"""
+from __future__ import annotations
+
+import json
+import threading
+import time
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from pathlib import Path
+
+from arena import llm
+from arena.client import ArenaClient, ArenaError
+
+from .state import State, TaskRecord, answer_shape, empty_submission
+
+SUBMIT_TRIES = 4
+
+
+@dataclass
+class Deadlines:
+    """Run-level clock. Defaults follow SPEC §8: soft 24 min (no new loop steps), hard 27 min (fallback-submit all)."""
+    start: float = field(default_factory=time.time)
+    soft_s: float = 24 * 60
+    hard_s: float = 27 * 60
+
+    def soft_passed(self) -> bool:
+        return time.time() - self.start >= self.soft_s
+
+    def hard_passed(self) -> bool:
+        return time.time() - self.start >= self.hard_s
+
+
+@dataclass
+class Ctx:
+    client: ArenaClient
+    run_id: str
+    out_dir: Path
+    tracker: llm.CostTracker
+    deadlines: Deadlines
+    lock: threading.Lock = field(default_factory=threading.Lock)
+
+    @property
+    def state_dir(self) -> Path:
+        return self.out_dir / "state"
+
+    def trace(self, task_id: str, event: dict) -> None:
+        """One jsonl line per event in runs/<run>/<task>.jsonl; `cost_total` lets report.py read the run's spend."""
+        line = json.dumps({"t": round(time.time() - self.deadlines.start, 2), **event,
+                           "cost_total": round(self.tracker.total, 8)}, ensure_ascii=False, default=str)
+        with self.lock, open(self.out_dir / f"{task_id}.jsonl", "a") as f:
+            f.write(line + "\n")
+
+
+Handler = Callable[[Ctx, TaskRecord], State]
+
+
+# --- handlers -------------------------------------------------------------------------------------------------------
+def intake(ctx: Ctx, rec: TaskRecord) -> State:
+    rec.answer_shape = answer_shape(rec.instruction)
+    return State.SOLVE
+
+
+def solve(ctx: Ctx, rec: TaskRecord) -> State:
+    return State.LOOP  # no family solvers yet (build tickets 10-13)
+
+
+def not_built(ctx: Ctx, rec: TaskRecord) -> State:
+    rec.errors.append(f"{rec.state.value}: stage not built yet")
+    return State.FALLBACK_SUBMIT
+
+
+def check(ctx: Ctx, rec: TaskRecord) -> State:
+    return State.SUBMIT if rec.draft else State.FALLBACK_SUBMIT  # guards arrive with build ticket 07
+
+
+def submit(ctx: Ctx, rec: TaskRecord) -> State:
+    if not rec.draft:
+        return State.FALLBACK_SUBMIT
+    _send(ctx, rec, rec.draft)
+    return State.DONE
+
+
+def fallback_submit(ctx: Ctx, rec: TaskRecord) -> State:
+    """The fallback ladder (SPEC §7): the best draft so far, else a right-shaped empty answer. Always ends in DONE."""
+    shape = rec.answer_shape if rec.answer_shape != "unknown" else answer_shape(rec.instruction)  # INTAKE may have failed
+    sub = rec.draft or empty_submission(shape)
+    try:
+        _send(ctx, rec, sub)
+    except Exception as e:  # noqa: BLE001 - nothing left to fall back to; record it and stop
+        rec.errors.append(f"FALLBACK_SUBMIT: {type(e).__name__}: {e}")
+    return State.DONE
+
+
+def _send(ctx: Ctx, rec: TaskRecord, sub: dict) -> None:
+    """Submit once, retrying transport errors; a 409 means the platform already has a submission for this task."""
+    for i in range(SUBMIT_TRIES):
+        try:
+            rec.result = ctx.client.submit(ctx.run_id, rec.task_id, sub["outcome"], sub["answer"], sub.get("sources"))
+            rec.submitted = True
+            ctx.trace(rec.task_id, {"event": "submit", "submission": sub, "result": rec.result})
+            return
+        except ArenaError as e:
+            if e.status == 409:
+                rec.submitted = True
+                rec.errors.append(f"submit: already submitted ({e})")
+                return
+            if e.status is not None and e.status < 500 and e.status != 429 or i == SUBMIT_TRIES - 1:
+                raise
+            time.sleep(2 ** i)
+
+
+HANDLERS: dict[State, Handler] = {
+    State.INTAKE: intake,
+    State.SOLVE: solve,
+    State.LOOP: not_built,     # build ticket 06
+    State.COMPOSE: not_built,  # build ticket 06
+    State.CHECK: check,
+    State.REPAIR: not_built,   # build ticket 07
+    State.SUBMIT: submit,
+    State.FALLBACK_SUBMIT: fallback_submit,
+}
+
+
+# --- driver ---------------------------------------------------------------------------------------------------------
+def run_task(ctx: Ctx, rec: TaskRecord, handlers: dict[State, Handler] = HANDLERS) -> TaskRecord:
+    """Drive one task to DONE, saving the record after every transition."""
+    rec.save(ctx.state_dir)
+    while rec.state != State.DONE:
+        cur = rec.state
+        if cur is not State.FALLBACK_SUBMIT and ctx.deadlines.hard_passed():
+            nxt, note = State.FALLBACK_SUBMIT, "hard deadline"
+        else:
+            rec.attempts[cur.value] = rec.attempts.get(cur.value, 0) + 1
+            try:
+                nxt, note = handlers[cur](ctx, rec), ""
+            except Exception as e:  # noqa: BLE001 - any failure takes the fallback edge
+                rec.errors.append(f"{cur.value}: {type(e).__name__}: {e}")
+                nxt, note = (State.DONE if cur is State.FALLBACK_SUBMIT else State.FALLBACK_SUBMIT), f"error in {cur.value}"
+            if nxt is cur and rec.attempts[cur.value] > 50:  # a handler that never advances must not spin forever
+                nxt, note = State.FALLBACK_SUBMIT, f"{cur.value} did not advance"
+        rec.move(nxt, note)
+        rec.save(ctx.state_dir)
+        ctx.trace(rec.task_id, {"event": "transition", "from": cur.value, "to": nxt.value, **({"note": note} if note else {})})
+    return rec

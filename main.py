@@ -61,6 +61,7 @@ def main() -> int:
     p.add_argument("--harness", choices=["baseline", "lab"], default="baseline",
                    help="baseline = the kit agent (agent.py; --model/--parallel/--max-steps/... apply to it); "
                         "lab = the new harness (harness/)")
+    p.add_argument("--fresh", action="store_true", help="lab: start a new run even if runs/ACTIVE.json names an active one")
     a = p.parse_args()
     if a.kind not in ("dev", "final"):
         p.error(f"ARENA_RUN_KIND must be dev or final, not {a.kind!r}")
@@ -81,8 +82,14 @@ def main() -> int:
             return 1
     try:
         tool_specs = client.tools()
-        run = client.start_run(a.kind, seed=a.seed if a.kind == "dev" else None,
-                               meta={"note": a.note} if a.note else None)
+        run = harness.active_run(client, a.kind) if a.harness == "lab" and not a.fresh else None
+        if run:
+            print(f"resuming active run {run.run_id} (runs/ACTIVE.json; --fresh starts a new one)")
+        else:
+            run = client.start_run(a.kind, seed=a.seed if a.kind == "dev" else None,
+                                   meta={"note": a.note} if a.note else None)
+        if a.harness == "lab":
+            harness.mark_active(client, run)
     except ArenaError as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
@@ -124,6 +131,8 @@ def main() -> int:
         fin = client.finish(run.run_id)
     except ArenaError as e:
         fin = {"error": str(e)}
+    if a.harness == "lab":
+        harness.clear_active(run)
 
     print("\n" + "-" * 78)
     for tid, res in sorted(results.items()):
