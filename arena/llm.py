@@ -8,6 +8,7 @@ Endpoints come from ``OPENROUTER_BASE_URL`` (default ``https://openrouter.ai/api
 """
 from __future__ import annotations
 
+import json
 import os
 import threading
 import time
@@ -58,7 +59,24 @@ class CostTracker:
 
 
 class LLMError(RuntimeError):
-    pass
+    """A failed model call. ``status`` is the HTTP status (None for network errors, timeouts and empty responses);
+    ``retry_after`` the Retry-After seconds (0 if absent); ``provider`` the upstream provider OpenRouter names in the
+    error body, if any; ``body`` the raw error body (truncated)."""
+
+    def __init__(self, message: str, *, status: int | None = None, retry_after: float = 0.0,
+                 provider: str | None = None, body: str = ""):
+        super().__init__(message)
+        self.status, self.retry_after, self.provider, self.body = status, retry_after, provider, body[:2000]
+
+
+def _provider(body: Any) -> str | None:
+    """OpenRouter names the upstream provider in ``error.metadata.provider_name``."""
+    if isinstance(body, dict):
+        err = body.get("error", body)
+        meta = err.get("metadata") if isinstance(err, dict) else None
+        if isinstance(meta, dict) and meta.get("provider_name"):
+            return str(meta["provider_name"])
+    return None
 
 
 def _key() -> str:
@@ -107,9 +125,23 @@ def _client() -> OpenAI:
 EMPTY_RETRIES = 4  # retries when a response comes back without choices
 
 
+def _sdk(retries: int | None, timeout: float | None) -> OpenAI:
+    """The pooled client, or a view of it with its own retry count and timeout (shares the connection pool)."""
+    c = _client()
+    if retries is None and timeout is None:
+        return c
+    opts: dict[str, Any] = {}
+    if retries is not None:
+        opts["max_retries"] = retries
+    if timeout is not None:
+        opts["timeout"] = timeout
+    return c.with_options(**opts)
+
+
 def _sdk_call(make, retries: int = RETRIES):
     """Run an OpenAI SDK call, translating failures to LLMError. The SDK retries network errors, 408, 429
-    and 5xx itself; we add OpenRouter's 402 + Retry-After (in-flight budget full though credit is left)."""
+    and 5xx itself; we add OpenRouter's 402 + Retry-After (in-flight budget full though credit is left).
+    With ``retries=0`` (the lab harness's pacer, which owns retries) every failure is raised at once."""
     for attempt in range(retries + 1):
         try:
             return make()
@@ -118,20 +150,25 @@ def _sdk_call(make, retries: int = RETRIES):
             if e.status_code == 402 and retry_after is not None and attempt < retries:
                 time.sleep(_retry_after_secs(retry_after))
                 continue
-            raise LLMError(f"OpenRouter error: {e}") from e
+            body = e.body if e.body is not None else (e.response.text if e.response is not None else "")
+            raise LLMError(f"OpenRouter error: {e}", status=e.status_code, retry_after=_retry_after_secs(retry_after),
+                           provider=_provider(e.body), body=body if isinstance(body, str) else json.dumps(body)) from e
         except openai.OpenAIError as e:
             raise LLMError(f"OpenRouter request failed: {e}") from e
 
 
 def chat(messages: list[dict], *, model: str = MAIN_MODEL, tools: list[dict] | None = None,
          tool_choice: Any = None, max_tokens: int = 4096, temperature: float | None = 0.2,
-         reasoning_effort: str | None = None, tracker: CostTracker | None = None) -> dict:
+         reasoning_effort: str | None = None, tracker: CostTracker | None = None,
+         retries: int | None = None, timeout: float | None = None) -> dict:
     """One chat/completions call. Returns the assistant ``message`` as a plain dict.
 
     Notes on reasoning models: thinking tokens count against ``max_tokens`` and cost
     money; if max_tokens is too small, ``content`` can be null (and no tool call is emitted).
     ``message["reasoning"]`` may hold the thinking text; we keep it out of the conversation history.
     ``reasoning_effort`` ("low"/"medium"/"high", or "none" where supported) trades quality for cost.
+    ``retries=0`` makes one attempt and raises every failure (an empty response too) as LLMError, for a caller that
+    paces and retries itself (harness/pacing.py); ``timeout`` overrides the per-request timeout.
     """
     # OpenRouter-only arguments go in extra_body. ``usage.include`` asks OpenRouter to attach usage.cost;
     # ``provider`` pins the fixed model to the same endpoints the final gateway uses.
@@ -148,14 +185,16 @@ def chat(messages: list[dict], *, model: str = MAIN_MODEL, tools: list[dict] | N
         kwargs["tools"] = tools
         kwargs["tool_choice"] = tool_choice or "auto"
     # OpenRouter sometimes answers 200 with no choices (a provider hiccup): retry those with backoff.
-    for attempt in range(EMPTY_RETRIES + 1):
-        resp = _sdk_call(lambda: _client().chat.completions.create(**kwargs))
+    empty_retries = EMPTY_RETRIES if retries is None else retries
+    for attempt in range(empty_retries + 1):
+        resp = _sdk_call(lambda: _sdk(retries, timeout).chat.completions.create(**kwargs),
+                         RETRIES if retries is None else retries)
         if tracker and resp.usage is not None:
             tracker.add(model, resp.usage.model_dump())
         if resp.choices:
             break
-        if attempt == EMPTY_RETRIES:
-            raise LLMError(f"No choices in response: {str(resp)[:300]}")
+        if attempt == empty_retries:
+            raise LLMError(f"No choices in response: {str(resp)[:300]}", body=str(resp))
         time.sleep(2 ** (attempt + 1))
     choice = resp.choices[0]
     msg = choice.message.model_dump()  # plain dict: role/content/tool_calls (+ reasoning if present)
@@ -182,13 +221,15 @@ def describe_image(data_url: str, question: str = "", *, model: str = MAIN_MODEL
     return msg.get("content") or "(no description returned)"
 
 
-def embed(texts: list[str], *, model: str = EMBED_MODEL, tracker: CostTracker | None = None) -> list[list[float]]:
+def embed(texts: list[str], *, model: str = EMBED_MODEL, tracker: CostTracker | None = None,
+          retries: int | None = None, timeout: float | None = None) -> list[list[float]]:
     """Embedding vectors for ``texts`` (one request; send batches of up to a few hundred chunks).
 
     Cheap but not free: embedding a 2M-token workspace costs about $0.02. Files are content-addressed (sha256), so
     embed each distinct file once per run and reuse the vectors across tasks.
     """
-    resp = _sdk_call(lambda: _client().embeddings.create(model=model, input=texts))
+    resp = _sdk_call(lambda: _sdk(retries, timeout).embeddings.create(model=model, input=texts),
+                     RETRIES if retries is None else retries)
     if tracker and resp.usage is not None:
         tracker.add(model, resp.usage.model_dump())
     rows = sorted(resp.data, key=lambda d: d.index)
@@ -214,7 +255,8 @@ def score(instructions: str, low: str, high: str) -> dict:
 
 
 def decide(state: Any, questions: dict[str, dict], *, model: str = JEV_MODEL,
-           tracker: CostTracker | None = None) -> dict[str, Any]:
+           tracker: CostTracker | None = None, retries: int | None = None,
+           timeout: float | None = None) -> dict[str, Any]:
     """Ask Jev one or more typed questions about ``state`` (string / object / list).
 
     Jev's ``/alpha/decisions`` is not an OpenAI-shaped endpoint, so this is a plain httpx POST rather
@@ -224,7 +266,8 @@ def decide(state: Any, questions: dict[str, dict], *, model: str = JEV_MODEL,
     ``{"route": {"choice": "a", "probabilities": {...}}}``, ``{"q": {"score": 0.4}}``.
     Cheap: ~400 input tokens is about $0.00002, output is free.
     """
-    data = _jev_post({"model": model, "state": state, "questions": questions}, timeout=60)
+    data = _jev_post({"model": model, "state": state, "questions": questions}, timeout=timeout or 60,
+                     retries=RETRIES if retries is None else retries)
     if tracker:
         tracker.add(model, data.get("usage"))
     return data.get("answers") or {}
@@ -235,6 +278,7 @@ def _jev_post(body: dict, timeout: float = TIMEOUT, retries: int = RETRIES) -> d
     url = jev_url()
     headers = {"Authorization": f"Bearer {_key()}", "X-Title": "Harness Arena starter kit"}
     last = ""
+    err: dict[str, Any] = {}
     for attempt in range(retries + 1):
         wait = 0.0
         try:
@@ -243,16 +287,28 @@ def _jev_post(body: dict, timeout: float = TIMEOUT, retries: int = RETRIES) -> d
                 data = r.json()
                 if "error" in data and "answers" not in data:
                     last = f"upstream error: {data['error']}"  # OpenRouter sometimes returns 200 + error
+                    err = {"status": None, "provider": _provider(data), "body": json.dumps(data)}
                 else:
                     return data
             # 402 with Retry-After: OpenRouter's in-flight budget is full although credit is left. Wait and retry.
             elif r.status_code in (408, 429) or r.status_code >= 500 or (r.status_code == 402 and "retry-after" in r.headers):
                 last = f"{r.status_code}: {r.text[:300]}"
                 wait = _retry_after_secs(r.headers.get("retry-after", 0))
+                err = {"status": r.status_code, "retry_after": wait, "provider": _provider(_json(r)), "body": r.text}
             else:
-                raise LLMError(f"Jev {url} -> {r.status_code}: {r.text[:500]}")
+                raise LLMError(f"Jev {url} -> {r.status_code}: {r.text[:500]}", status=r.status_code,
+                               retry_after=_retry_after_secs(r.headers.get("retry-after", 0)),
+                               provider=_provider(_json(r)), body=r.text)
         except httpx.TransportError as e:
             last = f"{type(e).__name__}: {e}"
+            err = {"status": None, "body": last}
         if attempt < retries:
             time.sleep(max(min(2 * 2**attempt, 30), wait))
-    raise LLMError(f"Jev {url} failed after retries: {last}")
+    raise LLMError(f"Jev {url} failed after retries: {last}", **err)
+
+
+def _json(r: Any) -> Any:
+    try:
+        return r.json()
+    except Exception:  # noqa: BLE001 - not JSON
+        return None

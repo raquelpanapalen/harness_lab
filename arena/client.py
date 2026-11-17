@@ -10,6 +10,7 @@ import subprocess
 import tempfile
 import threading
 import time
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Literal
@@ -147,12 +148,16 @@ class ArenaClient:
         self._manifests: dict[tuple[str, str], dict[str, dict]] = {}
         self._lock = threading.Lock()
         self.stats = {"blob_downloads": 0, "blob_cache_hits": 0, "bytes_downloaded": 0}
+        # Called before every HTTP request (retries included); the lab harness sets it to its shared Task API rate limit.
+        self.throttle: Callable[[], None] | None = None
 
     def _send(self, method: str, path: str, json: Any = None) -> httpx.Response:
         """Send with retries on network errors, 5xx and 429 (honouring Retry-After); raise ArenaError on other 4xx."""
         last: Exception | None = None
         for attempt in range(self.retries + 1):
             delay = 0.5 * 2**attempt
+            if self.throttle is not None:
+                self.throttle()
             try:
                 r = self._http.request(method, path, json=json)
             except httpx.TransportError as e:  # network problems: retry

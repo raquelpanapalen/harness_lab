@@ -13,10 +13,13 @@ from pathlib import Path
 from arena import llm
 from arena.client import ArenaClient, Run, Task
 
-from .machine import Ctx, Deadlines, run_task
+from .machine import HANDLERS, Ctx, Deadlines, Handler, run_task
+from .pacing import Budget, Pacer
 from .state import State, TaskRecord
 
-WORKERS = 8  # no model calls yet; build ticket 03 replaces this with per-endpoint caps
+# Task threads. Model and Task API concurrency is capped per endpoint by the pacer (harness/pacing.py), so this only
+# bounds how many tasks are open at once.
+WORKERS = 16
 
 
 def run_clock(state_dir: Path) -> Deadlines:
@@ -38,23 +41,38 @@ def load_record(state_dir: Path, task: Task) -> TaskRecord:
 
 
 def run(client: ArenaClient, run: Run, tasks: list[Task], tracker: llm.CostTracker, out_dir: Path,
-        deadlines: Deadlines | None = None) -> dict[str, dict]:
-    ctx = Ctx(client=client, run_id=run.run_id, out_dir=out_dir, tracker=tracker,
-              deadlines=deadlines or run_clock(out_dir / "state"))
+        deadlines: Deadlines | None = None, budget: Budget | None = None, pacer: Pacer | None = None,
+        handlers: dict[State, Handler] = HANDLERS) -> dict[str, dict]:
+    """Two phases (SPEC §8 timeline): first every task runs up to LOOP, so the ones a solver answers confidently are
+    submitted first; then the parked tasks run their loops. Both phases share the pacer's caps and run limits."""
+    deadlines = deadlines or run_clock(out_dir / "state")
+    budget = budget or Budget()
+    ctx = Ctx(client=client, run_id=run.run_id, out_dir=out_dir, tracker=tracker, deadlines=deadlines,
+              budget=budget, pacer=pacer or Pacer(tracker, deadlines, budget))
+    assert ctx.pacer is not None
+    client.throttle = ctx.pacer.task_api.acquire
+    t0s: dict[str, float] = {}
 
-    def work(task: Task) -> tuple[str, dict]:
-        t0 = time.time()
+    def work(task: Task, stop_before: frozenset[State]) -> tuple[str, TaskRecord]:
+        t0s.setdefault(task.task_id, time.time())
         rec = load_record(ctx.state_dir, task)
-        if rec.state is not State.DONE:
-            if rec.transitions:
+        if rec.state is not State.DONE and rec.state not in stop_before:
+            if rec.transitions and task.task_id not in ctx.started:
                 ctx.trace(task.task_id, {"event": "resume", "state": rec.state.value})
-            rec = run_task(ctx, rec)
-        res = _result(rec)
-        print(f"  {task.task_id} done in {time.time() - t0:.0f}s: {_line(res)}")
-        return task.task_id, res
+            ctx.started.add(task.task_id)
+            rec = run_task(ctx, rec, handlers, stop_before)
+        if rec.state is State.DONE:
+            res = _result(rec)
+            print(f"  {task.task_id} done in {time.time() - t0s[task.task_id]:.0f}s: {_line(res)}")
+        return task.task_id, rec
 
     with ThreadPoolExecutor(max_workers=WORKERS) as ex:
-        return dict(ex.map(work, tasks))
+        first = dict(ex.map(lambda t: work(t, frozenset({State.LOOP})), tasks))
+        parked = [t for t in tasks if first[t.task_id].state is not State.DONE]
+        if parked:
+            print(f"  {len(tasks) - len(parked)} task(s) done in phase 1; {len(parked)} go to the loop")
+        recs = {**first, **dict(ex.map(lambda t: work(t, frozenset()), parked))}
+    return {tid: _result(rec) for tid, rec in recs.items()}
 
 
 def _result(rec: TaskRecord) -> dict:

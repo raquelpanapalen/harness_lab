@@ -22,6 +22,7 @@ from pathlib import Path
 from arena import llm
 from arena.client import ArenaClient, ArenaError
 
+from .pacing import Budget, Pacer
 from .state import State, TaskRecord, answer_shape, empty_submission
 
 SUBMIT_TRIES = 4
@@ -48,7 +49,14 @@ class Ctx:
     out_dir: Path
     tracker: llm.CostTracker
     deadlines: Deadlines
+    budget: Budget = field(default_factory=Budget)
+    pacer: Pacer | None = None  # built from tracker, deadlines and budget unless given
     lock: threading.Lock = field(default_factory=threading.Lock)
+    started: set[str] = field(default_factory=set)  # tasks this process has driven (phase 2 is not a "resume")
+
+    def __post_init__(self) -> None:
+        if self.pacer is None:
+            self.pacer = Pacer(self.tracker, self.deadlines, self.budget)
 
     @property
     def state_dir(self) -> Path:
@@ -133,13 +141,20 @@ HANDLERS: dict[State, Handler] = {
 
 
 # --- driver ---------------------------------------------------------------------------------------------------------
-def run_task(ctx: Ctx, rec: TaskRecord, handlers: dict[State, Handler] = HANDLERS) -> TaskRecord:
-    """Drive one task to DONE, saving the record after every transition."""
+def run_task(ctx: Ctx, rec: TaskRecord, handlers: dict[State, Handler] = HANDLERS,
+             stop_before: frozenset[State] = frozenset()) -> TaskRecord:
+    """Drive one task to DONE (or until it reaches a state in `stop_before`), saving the record after every
+    transition. The pacer's run limits apply before each handler: a 403, the hard deadline or the hard budget send the
+    task to FALLBACK_SUBMIT; the soft deadline or soft budget turn LOOP into COMPOSE (no new loop steps). The LOOP
+    handler must also check `ctx.pacer.loop_stop_reason()` before every step it takes."""
     rec.save(ctx.state_dir)
-    while rec.state != State.DONE:
+    while rec.state != State.DONE and rec.state not in stop_before:
         cur = rec.state
-        if cur is not State.FALLBACK_SUBMIT and ctx.deadlines.hard_passed():
-            nxt, note = State.FALLBACK_SUBMIT, "hard deadline"
+        assert ctx.pacer is not None
+        if cur is not State.FALLBACK_SUBMIT and (why := ctx.pacer.fallback_reason()):
+            nxt, note = State.FALLBACK_SUBMIT, why
+        elif cur is State.LOOP and (why := ctx.pacer.loop_stop_reason()):
+            nxt, note = State.COMPOSE, why
         else:
             rec.attempts[cur.value] = rec.attempts.get(cur.value, 0) + 1
             try:
