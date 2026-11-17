@@ -123,3 +123,10 @@ Format example (ignored: it sits in a code block). Write your entries below it, 
 - change: harness/pacing.py (per-endpoint caps, adaptive Gemma limit, deadline-bounded jittered backoff, 400 → shrink, 403 → stop all model calls); budget watcher $0.50/$1.00 and soft/hard deadlines checked before every state; solver-confident tasks run before loop tasks; LLMError carries status/provider/body; SDK retries off under the pacer
 - rejected: keeping the SDK's built-in retries (attempt-capped, blind to the deadline, no adaptive limit); a 403 detected per task (other tasks keep calling until each sees its own 403)
 - evidence: tests/test_lab_pacing.py; replay rp007_run_NT6kzGi5K2iQ (403 after 15 calls → 48/48 submitted), rp008_run_OA72gAU9T7pb (48/48 at $0)
+
+## 14:55 · Build 05: intake target raised to ≤ $0.002 of Jev per run
+- decided_by: human       # asked with the measurement in hand; accepted the recommended option
+- why: one Jev call per task measures 1.000 family / kind / allowlist on 1,872 dev tasks, at $0.0018 per run; Jev bills ~330 tokens of overhead per call + ~22 per option, so a 24-option catalogue can't reach $0.001
+- change: harness/intake.py (open-ticket and inbox request resolution, /AGENTS.md + named operator files as trusted rules, family choice over our own catalogue; inbox tasks ask only for the requested action; allowlist from the grader's kind mapping, empty below 0.5); ticket 05 target ≤ $0.002
+- rejected: code prefilter to top-k families (meets $0.001 but misroutes if it misses unseen wording); bare option names ($0.0014, still over, weaker); family question on inbox tasks (32 filed as containment)
+- evidence: harvester/eval_intake.py → wayfinder/harness/build/05-intake-eval.md (39 runs, 1.000/1.000/1.000, $0.00179/run); replay rp009_run_aT-eldEdFrOG 48/48 submitted, 36 classified for $0.0013
