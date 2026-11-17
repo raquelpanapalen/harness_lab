@@ -18,6 +18,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from arena import llm
 from arena.client import ArenaClient, ArenaError
@@ -54,6 +55,8 @@ class Ctx:
     pacer: Pacer | None = None  # built from tracker, deadlines and budget unless given
     lock: threading.Lock = field(default_factory=threading.Lock)
     started: set[str] = field(default_factory=set)  # tasks this process has driven (phase 2 is not a "resume")
+    index: Any = None  # harness.index.Index built at SETUP (None if setup failed: tools then go to the server)
+    tools: Any = None  # harness.tools.Tools: read-only tools from the index, the rest from the server
 
     def __post_init__(self) -> None:
         if self.pacer is None:

@@ -13,6 +13,8 @@ from pathlib import Path
 from arena import llm
 from arena.client import ArenaClient, Run, Task
 
+from .index import Index
+from .tools import Tools
 from .machine import HANDLERS, Ctx, Deadlines, Handler, run_task
 from .pacing import Budget, Pacer
 from .state import State, TaskRecord
@@ -51,6 +53,7 @@ def run(client: ArenaClient, run: Run, tasks: list[Task], tracker: llm.CostTrack
               budget=budget, pacer=pacer or Pacer(tracker, deadlines, budget))
     assert ctx.pacer is not None
     client.throttle = ctx.pacer.task_api.acquire
+    setup(ctx)
     t0s: dict[str, float] = {}
 
     def work(task: Task, stop_before: frozenset[State]) -> tuple[str, TaskRecord]:
@@ -73,6 +76,23 @@ def run(client: ArenaClient, run: Run, tasks: list[Task], tracker: llm.CostTrack
             print(f"  {len(tasks) - len(parked)} task(s) done in phase 1; {len(parked)} go to the loop")
         recs = {**first, **dict(ex.map(lambda t: work(t, frozenset()), parked))}
     return {tid: _result(rec) for tid, rec in recs.items()}
+
+
+def setup(ctx: Ctx) -> None:
+    """SETUP (SPEC §3): the workspace index, before any task starts. A failed setup is logged and the run goes on:
+    tools then fall back to the server."""
+    t0 = time.time()
+    try:
+        ctx.index = Index.build(ctx.client, ctx.run_id)
+        st = ctx.index.stats
+        print(f"  index: {st['blobs']} blobs, {st['units']} evidence units, {st['tampered_units']} variant-text flags, "
+              f"{st['setup_s']}s" + (f", {len(st['errors'])} parse errors" if st["errors"] else ""))
+        ctx.trace("_setup", {"event": "index", **st})
+    except Exception as e:  # noqa: BLE001 - the run must go on without the index
+        ctx.index = None
+        print(f"  index setup failed after {time.time() - t0:.0f}s: {type(e).__name__}: {e}")
+        ctx.trace("_setup", {"event": "index_failed", "error": f"{type(e).__name__}: {e}"})
+    ctx.tools = Tools(ctx.client, ctx.run_id, ctx.index)
 
 
 def _result(rec: TaskRecord) -> dict:
