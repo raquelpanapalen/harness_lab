@@ -102,3 +102,10 @@ Format example (ignored: it sits in a code block). Write your entries below it, 
 - change (spec, not built yet): objective = Score on the event's fixed C range; target ≤ $0.10/run; loop 6/8/10 steps with ≤ 6k-token prompts; images read per need at low resolution; families where the loop scores ~0 submit code-only answers; runaway watcher at $0.50 / $1.00
 - rejected: accuracy-only objective with $3 as a hard limit (not comparable with the board); $1/run soft target (Score ≈ 0.40 at best)
 - evidence: arena.ai-mission.eu/leaderboard read 2026-11-17; wayfinder/harness/09-model-roles-budget.md
+
+## 01:30 · Build 01: harness selectable in main.py, parsers shared
+- decided_by: ai          # build ticket 01 (prefactor), sliced with the human
+- why: the new harness must run beside the kit baseline (reference for comparisons), and its index reuses the document parsers
+- change: `main.py --harness baseline|lab` (baseline default); new `harness/` package with a stub entry point; parsers moved from agent.py to arena/parse.py
+- rejected: replacing agent.py in place (loses the reference baseline)
+- evidence: parser parity 46/46 files identical; replay smoke runs rp003_run_NLzokmjwLUfD (lab stub, $0) and rp004_run_ObCe2yzg_xMy (baseline, 1 task, 1.00, $0.011)
