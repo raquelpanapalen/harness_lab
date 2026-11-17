@@ -20,6 +20,7 @@ Spec: [SPEC.md](../SPEC.md)
 - Parsers moved to `arena/parse.py` (`extract_text` + per-format functions); the baseline's `download_file` uses them.
   Parity: identical output to the old functions on 46 real workspace files (12 pdf, 12 docx, 12 xlsx, 4 ods, 6 odt).
 - Smoke runs on the replay: lab stub rp003_run_NLzokmjwLUfD (48 tasks, 0 submitted, $0, finished cleanly); baseline
-  rp004_run_ObCe2yzg_xMy, 1 task with a `download_file` call, score 1.00, $0.011.
+  rp004_run_ObCe2yzg_xMy, 1 task, score 1.00, $0.011 (that task made no `download_file` call). The baseline's
+  `download_file` was exercised directly on real files: pdf, docx, xlsx, ods and odt parse, jpg points to `view_image`.
 - Offline tests: test_offline, test_cache, test_runs pass. test_submit_retry fails before and after this change
   (pre-existing in the kit; not touched).
