@@ -456,6 +456,8 @@ class Workspace:
                 if op == "revoke_token":
                     st.setdefault("revoked_tokens", []).append({"token": o["token"], "at": stamp})
                 else:
+                    if not o.get("at"):
+                        raise ToolError(f"op {i}: rotate_token needs at")  # GUESS: wording; real response unseen
                     st["rotations"] = [r for r in st.get("rotations", []) if r.get("token") != o["token"]]
                     st["rotations"].append({"token": o["token"], "at": o["at"]})
             elif op == "block_domain":

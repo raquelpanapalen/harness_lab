@@ -39,3 +39,24 @@ Format example (ignored: it sits in a code block). Write your entries below it, 
 - change: citations matched by the evidence they point at (record in a csv row, request id across files, agent + trace in the audit log; path-only citations of one file count once); list answers given as strings split; numbers as strings; per-task authorisation of state-changing calls refused at call time; rotation_in_freeze; injected_action for answers naming agents framed by planted text; containment/send_message responses identical to real; new `rotation` task kind (42 tasks)
 - rejected: an LLM judge for injected framings (cost, and a regex on claim language already finds 8/8 with 0/29 false alarms); per-run caching of framings (each task has its own injections)
 - evidence: real run_lI_N_uYzqRyP 0.311 vs replay 0.294 / 0.288; real run_iLM_ts7nIe2j 0.315 vs replay 0.402 / 0.413; full grade incl. constraints identical on 96/96 real tasks, calibration 239/242, state-changing responses 12/12, read-only probes 1269/1269, oracle 1.0 on 2112 tasks
+
+## 22:40 · New harness: workspace index of citable evidence units, cited by handle
+- decided_by: ai          # proposed in the wayfinder retrieval ticket; human accepted every recommendation
+- why: baseline citation score 0.25–0.28 and ~19 calls/task re-sending context; 75 % of tasks are joins/counts over csv/xlsx/log data (research/task-taxonomy); ids dominate, so embeddings add latency for little gain (research/model-capabilities)
+- change (spec, not built yet): download each run's ~950 blobs once; index evidence units with exact grader locators; model cites handles, code writes `sources`; tables in SQLite for code solvers; local BM25; read-only tools served locally; isolation by blob hash; `untrusted` flag per unit
+- rejected: browsing with server tools (cost, garbled locators); embeddings in v1 (≈ 8 s/request under load, ids dominate); raw SQL for the model (small-model join errors)
+- evidence: design only; wayfinder/harness/07-retrieval.md
+
+## 22:55 · New harness: transcribe every image once per run
+- decided_by: ai          # proposed in the wayfinder image-inputs ticket; human accepted every recommendation
+- why: 71–106 distinct images per run (ticket photos, signed standing order, scans, amendments); baseline re-reads them with 56–72 `view_image` calls per run; reading all once costs ≈ $0.03–0.05
+- change (spec, not built yet): one generic verbatim-plus-marks transcription per distinct image at run start, cached by hash; transcripts are untrusted text; accuracy measured on dev images before adding second reads or higher resolution
+- rejected: per-image-type prompts (depend on dev file names); Jev for stamp checks (image support early, long-context mode); vision inside the agent loop (repeated cost)
+- evidence: design only; wayfinder/harness/12-vision.md
+
+## 23:20 · New harness: pipeline of setup, intake, solver or notebook loop, compose, check, submit
+- decided_by: ai          # proposed in the wayfinder pipeline-architecture ticket; human accepted every recommendation
+- why: baseline lost 47/96 points to provider errors (400s start above ~8k-token prompts) and most of the rest to wrong content/format; successful tasks need ~8 steps and ~42k tokens, failures ~140k at the step cap; ≈ 75 % of tasks are computable by code
+- change (spec, not built yet): run setup (index, SQLite, image transcripts) → intake via a Jev choice over family descriptions → family solver, else a notebook loop with ≤ ~8k-token prompts and no re-sent history → compose writes structured JSON incl. state-changing actions → code checks (shape, citations, framed agents, URLs, authorisation) → always submit; own thin Python on `arena/`
+- rejected: agent framework (pydantic-ai: loop is the smallest part; guards and context control need our own code); regex routing on dev wording (the arena rewords tasks); growing chat history (cost and 400s); state-changing calls inside the loop (unguarded)
+- evidence: design only; wayfinder/harness/06-pipeline-architecture.md; research/baseline-failures
