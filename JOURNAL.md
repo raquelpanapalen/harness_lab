@@ -137,3 +137,10 @@ Format example (ignored: it sits in a code block). Write your entries below it, 
 - change: harness/index.py (evidence units with grader locators, SQLite per csv/jsonl/sheet, BM25, lazy PDFs, untrusted flags incl. variant-text), harness/localtools.py (tree/list/read/search/query_logs in the server's format), harness/tools.py (router + read_text), setup in harness.run before phase 1; live-url no longer flagged on visible PDF text
 - rejected: marker-phrase rules (finals are reworded); flagging live URLs in PDFs (95 % of the 3-run false positives were reference URLs in real-world reports); one global BM25 corpus (per-task stats keep variants apart)
 - evidence: tests/check_index.py on 39 dev runs: probes 2652/2652 identical, citations 10058/10058, audit-detail recall 81 % → 100 % with variant-text (circular label), false positives 0.009 %; setup 63 s / 871 MB on rp010_run_5CFzxOViKnfn
+
+## 15:30 · Build 06: notebook loop and compose, first real Score
+- decided_by: ai          # build ticket 06, from the pipeline-architecture and submission-policy decisions
+- why: tasks without a solver need an end-to-end answer path; the Score needs a first measurement
+- change: harness/loop.py (one step per visit, ≤ 6k-token prompts, handle-tagged units in data markers, note-first prompt, caps 6/8/10, photo tickets skip), harness/compose.py (JSON outcome/answer/cite/actions; refusals only on requests to act; actions only on the allowlist until ticket 07), harness/normalise.py (UTC, JSON, numbers, sort, keys, citation cap); answer_shape ignores the refusal clause
+- rejected: letting the loop call state-changing tools (actions belong to compose so check can see them); notes optional (Gemma then never notes: 0/6)
+- evidence: rp002 0/6 → rp003 0.06 (note-first); rp004/rp005 Score 0.147/0.157; after the shape fix rp006/rp007 (same seeds) A 0.194, $0.136, Score 0.163 (kit baseline 0.152 at $0.68); max prompt 5,349 tokens
