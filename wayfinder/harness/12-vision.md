@@ -31,3 +31,10 @@ Decided with the human (grilling, all recommendations accepted):
 5. No Jev on images (early feature, long-context mode); Jev questions about transcripts are allowed.
 
 Handed on: "the signed standing order outranks the typed copy" and similar binding rules belong to Family solvers.
+
+## Addendum (from Model roles and budget per level, after the leaderboard)
+
+Points 1 and 3 changed: transcribing every image (≈ $0.03–0.05/run) is half the $0.10 budget. Instead, images are read
+only when a task needs them: tickets until the first OPEN one, the standing order once per run, scans only for scan
+tasks; still cached per run by blob hash. The image token budget (70–1,120 per image) starts low and is raised only for
+image kinds where the dev measurement shows errors (e.g. domain spellings). Points 2, 4, 5 stand.

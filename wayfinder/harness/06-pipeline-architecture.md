@@ -38,3 +38,17 @@ Decided with the human (grilling, two rounds, all recommendations accepted):
    State-changing tools are not loop tools: they are part of the compose output, so check sees them before they run.
 9. Notebook: facts only via `note`, each with ≥ 1 handle (handle-less facts dropped); capped at ~2k tokens, oldest
    facts condensed by code. Compose may cite only handles in the notebook or the solver's evidence.
+
+## Addendum (decided with the human after the action-guard ticket)
+
+10. Each task runs as an explicit state machine: SETUP (per run) → INTAKE → SOLVE (solver, else LOOP) → COMPOSE →
+    CHECK → (REPAIR → CHECK, once) → SUBMIT → DONE, with a FALLBACK_SUBMIT edge from every state on error, deadline or
+    budget limit. An enum plus one function per state returning the next state; no graph framework. The task record
+    (notebook, handles, draft answer, attempt counts) is saved after every transition, so a task resumes instead of
+    restarting; a deadline/budget watcher forces open tasks to FALLBACK_SUBMIT. Retry and pacing details: Provider
+    errors, retries and pacing.
+
+## Addendum (from Model roles and budget per level)
+
+Point 4: loop prompts ≤ ~6k tokens (was ~8k); step caps 6 / 8 / 10 by level. Point 7: image transcription is per need,
+not all images at setup.

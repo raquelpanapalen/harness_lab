@@ -60,3 +60,45 @@ Format example (ignored: it sits in a code block). Write your entries below it, 
 - change (spec, not built yet): run setup (index, SQLite, image transcripts) → intake via a Jev choice over family descriptions → family solver, else a notebook loop with ≤ ~8k-token prompts and no re-sent history → compose writes structured JSON incl. state-changing actions → code checks (shape, citations, framed agents, URLs, authorisation) → always submit; own thin Python on `arena/`
 - rejected: agent framework (pydantic-ai: loop is the smallest part; guards and context control need our own code); regex routing on dev wording (the arena rewords tasks); growing chat history (cost and 400s); state-changing calls inside the loop (unguarded)
 - evidence: design only; wayfinder/harness/06-pipeline-architecture.md; research/baseline-failures
+
+## 23:40 · New harness: deterministic action guard and frame guard
+- decided_by: ai          # proposed in the wayfinder action-guard ticket; human accepted every recommendation
+- why: any constraint violation zeroes a task; baseline lost 4 tasks to them (2 quarantines alongside NEEDS_CLARIFICATION, 1 framing, 1 freeze); team attacks are 66 % framings, 26 % live URLs, ~75 % in audit `detail` (research/injection-landscape)
+- change (spec, not built yet): explicit per-task allowlist emptied on refusals; code-validated action arguments (roster, stand-ins, scheduler, verified recipients, named paths); agent ids need trusted backing; outgoing text defanged and stripped of secrets and rules text; workspace /AGENTS.md the only trusted text; one repair round, then submit without the blocked part
+- rejected: deleting instruction-like text (some is the evidence asked about); Jev or model screening inside the guard (can be talked round, refusing on detection hurts utility); refusing instead of rewriting
+- evidence: design only; wayfinder/harness/08-action-guard.md
+
+## 23:50 · New harness: each task is an explicit state machine
+- decided_by: both        # human asked whether it would be a state machine; ai proposed the shape
+- why: 47/96 baseline points were tasks dropped on provider errors; always-submit and resume must hold by construction
+- change (spec, not built yet): enum states INTAKE → SOLVE/LOOP → COMPOSE → CHECK → REPAIR (once) → SUBMIT, a FALLBACK_SUBMIT edge from every state, task record saved per transition, deadline/budget watcher
+- rejected: LangGraph or another graph framework (9 states, fixed edges)
+- evidence: design only; wayfinder/harness/06-pipeline-architecture.md (addendum)
+
+## 00:10 · New harness: family solvers over a shared per-run fact layer
+- decided_by: ai          # proposed in the wayfinder family-solvers ticket; human accepted every recommendation
+- why: ≈ 75 % of tasks are computable from a few per-run facts (research/task-taxonomy); wrong answer content is the largest non-infrastructure loss (12.6 of 96 points, research/baseline-failures); big-file families scored 0 on 19 tasks
+- change (spec, not built yet): fact layer per run and per audit/board version; solvers implement runbook concepts with values read from the workspace; Jev yes/no (after decoding) for "instruction to agents?"; two-part recognition; solvers enabled only where they beat the loop on dev; helpers for model-heavy families; scenario assumptions as checked preconditions
+- rejected: regex routing on dev wording; solvers for model-heavy families; hard-coded values from dev runs (memorisation, AGENTS.md)
+- evidence: design only; wayfinder/harness/11-family-solvers.md
+
+## 00:20 · New harness: submission normalisation, verified refusals, citation cap, fallback ladder
+- decided_by: ai          # proposed in the wayfinder submission-policy ticket; human accepted every recommendation
+- why: baseline lost 3.4 points to answer format, 2 to wrong outcomes; 61/95 citation misses cited the wrong file (often the carrier ticket); a wrong or empty answer scores the same 0 as none
+- change (spec, not built yet): schema from the instruction + code normalisation; refusals need a code-verified reason; cite answer evidence only, cap items + 2; fallback ladder solver → notebook compose → right-shaped empty OK
+- rejected: refusal as a fallback (zeroes OK tasks); citing "just in case" (penalty past expected + 2)
+- evidence: design only; wayfinder/harness/10-submission-policy.md
+
+## 00:35 · New harness: pacing, retries and deadlines
+- decided_by: ai          # proposed in the wayfinder resilience ticket; human accepted every recommendation
+- why: 47/96 baseline points were tasks dropped on 429/400 (research/baseline-failures); FINAL_RUN.md: 30 min hard stop, 403 at $3, Jev slows above 10 parallel calls
+- change (spec, not built yet): per-endpoint concurrency caps with adaptive Gemma limit; deadline-bounded backoff; 400 → shrink context and log the provider; 403 → fallback-submit all; solver tasks first; soft/hard deadlines 24/27 min; resumable task records; sequential dev runs
+- rejected: the kit's fixed 5-retry cap (gives up after ~17 s and drops the task); parallel dev runs on one key (caused the 429s)
+- evidence: design only; wayfinder/harness/13-resilience.md
+
+## 00:55 · New harness: optimise the leaderboard Score, ≤ $0.10 per run
+- decided_by: human       # human pointed at the leaderboard and asked to be comparable on score and cost
+- why: leaderboard Score = A·(0.5+0.5·C), C log-scaled $0.049 → 1 to $1.135 → 0; AIT won at A 0.751 for $0.049 (0.750) over Donaufriends A 0.765 for $0.354 (0.524); at A 0.75, $0.50/run caps Score at ≈ 0.47
+- change (spec, not built yet): objective = Score on the event's fixed C range; target ≤ $0.10/run; loop 6/8/10 steps with ≤ 6k-token prompts; images read per need at low resolution; families where the loop scores ~0 submit code-only answers; runaway watcher at $0.50 / $1.00
+- rejected: accuracy-only objective with $3 as a hard limit (not comparable with the board); $1/run soft target (Score ≈ 0.40 at best)
+- evidence: arena.ai-mission.eu/leaderboard read 2026-11-17; wayfinder/harness/09-model-roles-budget.md

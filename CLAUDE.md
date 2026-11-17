@@ -9,7 +9,10 @@
 - `harvester/data/` (2.4 GB, git-ignored) holds the expected answers. The harness must never read it: it is for the
   replay server and evaluation only (AGENTS.md: do not memorise expected answers).
 - `docs.md` is the full Task API reference (tool formats, scoring, outcomes, citations).
-- Harness code (`agent.py`, `main.py`, `arena/`) is still the starter-kit baseline.
+- Harness code (`agent.py`, `main.py`, `arena/`) is still the starter-kit baseline. The new harness is specified in
+  `wayfinder/harness/SPEC.md` (decisions and evidence in the map's tickets, `wayfinder/harness/`; terms in `GLOSSARY.md`).
+- Judge changes by the leaderboard Score, `A · (0.5 + 0.5 · C)` with C log-scaled from 1 at $0.049 to 0 at $1.135 per
+  run (`uv run harvester/report.py` prints it). Target ≤ $0.10 per run. Run measurement runs one at a time.
 - After changing `harvester/replay/`, run `uv run harvester/replay/test_replay.py` and
   `uv run harvester/replay/check_probes.py`; both must pass.
 - Use the live arena only for new harvests or grader calibration (`harvester/harvest.py`, `harvester/calibrate.py`).
