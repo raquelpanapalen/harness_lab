@@ -54,6 +54,14 @@ class TaskRecord:
     allowlist: list[str] = field(default_factory=list)        # state-changing operations this task may use
     rules: str = ""                          # trusted rules (/AGENTS.md) for loop and compose prompts
     operator_files: list[str] = field(default_factory=list)   # /AGENTS.md and the operator files it names
+    # loop and compose (build ticket 06)
+    notes: list[dict] = field(default_factory=list)           # notebook: {"fact", "sources": [locators]}
+    loop_steps: int = 0
+    loop_done: bool = False
+    loop_seen: list[str] = field(default_factory=list)        # tool calls already made (repeat → "seen")
+    loop_last: str = ""                                       # latest tool results, shown in the next step only
+    max_prompt_tokens: int = 0                                # largest measured prompt of this task
+    actions_done: list[dict] = field(default_factory=list)    # state-changing calls made, with their results
 
     def path(self, state_dir: Path) -> Path:
         return state_dir / f"{self.task_id}.json"

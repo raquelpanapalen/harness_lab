@@ -160,7 +160,8 @@ def _sdk_call(make, retries: int = RETRIES):
 def chat(messages: list[dict], *, model: str = MAIN_MODEL, tools: list[dict] | None = None,
          tool_choice: Any = None, max_tokens: int = 4096, temperature: float | None = 0.2,
          reasoning_effort: str | None = None, tracker: CostTracker | None = None,
-         retries: int | None = None, timeout: float | None = None) -> dict:
+         retries: int | None = None, timeout: float | None = None,
+         response_format: dict | None = None) -> dict:
     """One chat/completions call. Returns the assistant ``message`` as a plain dict.
 
     Notes on reasoning models: thinking tokens count against ``max_tokens`` and cost
@@ -181,6 +182,8 @@ def chat(messages: list[dict], *, model: str = MAIN_MODEL, tools: list[dict] | N
                               "extra_body": extra_body}
     if temperature is not None:
         kwargs["temperature"] = temperature
+    if response_format:
+        kwargs["response_format"] = response_format
     if tools:
         kwargs["tools"] = tools
         kwargs["tool_choice"] = tool_choice or "auto"
@@ -199,6 +202,7 @@ def chat(messages: list[dict], *, model: str = MAIN_MODEL, tools: list[dict] | N
     choice = resp.choices[0]
     msg = choice.message.model_dump()  # plain dict: role/content/tool_calls (+ reasoning if present)
     msg["_finish_reason"] = choice.finish_reason
+    msg["_usage"] = resp.usage.model_dump() if resp.usage is not None else {}
     return msg
 
 

@@ -23,7 +23,9 @@ from typing import Any
 from arena import llm
 from arena.client import ArenaClient, ArenaError
 
+from . import compose as compose_mod
 from . import intake as intake_mod
+from . import loop as loop_mod
 from .pacing import Budget, Pacer
 from .state import State, TaskRecord, answer_shape, empty_submission
 
@@ -126,21 +128,47 @@ def not_built(ctx: Ctx, rec: TaskRecord) -> State:
     return State.FALLBACK_SUBMIT
 
 
+def loop(ctx: Ctx, rec: TaskRecord) -> State:
+    """One notebook-loop step (harness/loop.py); LOOP again until done or the step cap, then COMPOSE."""
+    return loop_mod.step(ctx, rec)
+
+
+def compose(ctx: Ctx, rec: TaskRecord) -> State:
+    rec.draft = compose_mod.compose(ctx, rec)
+    return State.CHECK
+
+
 def check(ctx: Ctx, rec: TaskRecord) -> State:
-    return State.SUBMIT if rec.draft else State.FALLBACK_SUBMIT  # guards arrive with build ticket 07
+    return State.SUBMIT if rec.draft else State.FALLBACK_SUBMIT  # guards and repair arrive with build ticket 07
 
 
 def submit(ctx: Ctx, rec: TaskRecord) -> State:
+    """Run the draft's allowed actions (once, also across a restart), then submit the answer."""
     if not rec.draft:
         return State.FALLBACK_SUBMIT
-    _send(ctx, rec, rec.draft)
+    for i, a in enumerate(rec.draft.get("actions") or []):
+        if i < len(rec.actions_done):
+            continue  # already sent before a restart
+        res = ctx.tools.call(rec.task_id, a["tool"], a["args"]) if ctx.tools is not None else \
+            ctx.client.call_tool(ctx.run_id, rec.task_id, a["tool"], a["args"])
+        rec.actions_done.append({"action": a, "result": res})
+        rec.save(ctx.state_dir)
+        ctx.trace(rec.task_id, {"event": "action", "tool": a["tool"], "args": a["args"], "result": res})
+    _send(ctx, rec, {k: v for k, v in rec.draft.items() if k != "actions"})
     return State.DONE
 
 
 def fallback_submit(ctx: Ctx, rec: TaskRecord) -> State:
-    """The fallback ladder (SPEC §7): the best draft so far, else a right-shaped empty answer. Always ends in DONE."""
+    """The fallback ladder (SPEC §7): the best draft so far, else a compose from the notebook (no actions), else a
+    right-shaped empty answer. Always ends in DONE."""
     shape = rec.answer_shape if rec.answer_shape != "unknown" else answer_shape(rec.instruction)  # INTAKE may have failed
-    sub = rec.draft or empty_submission(shape)
+    if not rec.draft and rec.notes and ctx.pacer is not None and not ctx.pacer.stopped \
+            and not ctx.deadlines.hard_passed():
+        try:
+            rec.draft = compose_mod.compose(ctx, rec, with_actions=False)
+        except Exception as e:  # noqa: BLE001 - next rung
+            rec.errors.append(f"FALLBACK_SUBMIT compose: {type(e).__name__}: {e}")
+    sub = {k: v for k, v in rec.draft.items() if k != "actions"} if rec.draft else empty_submission(shape)
     try:
         _send(ctx, rec, sub)
     except Exception as e:  # noqa: BLE001 - nothing left to fall back to; record it and stop
@@ -169,8 +197,8 @@ def _send(ctx: Ctx, rec: TaskRecord, sub: dict) -> None:
 HANDLERS: dict[State, Handler] = {
     State.INTAKE: intake,
     State.SOLVE: solve,
-    State.LOOP: not_built,     # build ticket 06
-    State.COMPOSE: not_built,  # build ticket 06
+    State.LOOP: loop,
+    State.COMPOSE: compose,
     State.CHECK: check,
     State.REPAIR: not_built,   # build ticket 07
     State.SUBMIT: submit,

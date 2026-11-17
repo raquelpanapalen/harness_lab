@@ -22,6 +22,10 @@ from harness.state import State, TaskRecord, answer_shape, empty_submission  # n
 # No model calls in these tests: intake's Jev call answers "compromised" with certainty.
 JEV_ANSWER = {"family": {"type": "choice", "choice": "compromised", "probabilities": {"compromised": 0.99}}}
 Pacer.decide = lambda self, state, questions, **kw: JEV_ANSWER  # type: ignore[method-assign]
+# ... and Gemma (loop, compose) composes an empty OK answer.
+GEMMA_MESSAGE = {"role": "assistant", "content": '{"outcome": "OK", "answer": [], "cite": [], "actions": []}',
+                 "tool_calls": None, "_usage": {"prompt_tokens": 100}}
+Pacer.chat = lambda self, messages, **kw: dict(GEMMA_MESSAGE)  # type: ignore[method-assign]
 
 
 class FakeClient:
@@ -104,8 +108,8 @@ def test_failure_in_every_state() -> None:
 
 def test_fallback_submit_failure_terminates() -> None:
     with tempfile.TemporaryDirectory() as d:
-        c = ctx(Path(d), FakeClient([ArenaError("bad request", 400)]))
-        rec = run_task(c, TaskRecord("t01", "x", 1))
+        c = ctx(Path(d), FakeClient([ArenaError("bad request", 400), ArenaError("bad request", 400)]))
+        rec = run_task(c, TaskRecord("t01", "x", 1))  # SUBMIT fails, then FALLBACK_SUBMIT fails too
         assert rec.state is State.DONE and not rec.submitted and rec.errors, rec
 
 
@@ -150,7 +154,7 @@ def test_resume_after_restart() -> None:
         assert sorted(s[0] for s in client.submits) == ["t01", "t03"], client.submits
         assert res["t02"] == {"feedback": "submitted earlier"}
         rec = TaskRecord.load(sd / "t01.json")
-        assert [t["to"] for t in rec.transitions][2] == "FALLBACK_SUBMIT", rec.transitions  # continued from LOOP
+        assert rec.transitions[2]["from"] == "LOOP", rec.transitions  # continued from LOOP
         assert (out / "t01.jsonl").read_text().count('"event": "resume"') == 1
 
 
