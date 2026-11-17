@@ -144,3 +144,10 @@ Format example (ignored: it sits in a code block). Write your entries below it, 
 - change: harness/loop.py (one step per visit, ≤ 6k-token prompts, handle-tagged units in data markers, note-first prompt, caps 6/8/10, photo tickets skip), harness/compose.py (JSON outcome/answer/cite/actions; refusals only on requests to act; actions only on the allowlist until ticket 07), harness/normalise.py (UTC, JSON, numbers, sort, keys, citation cap); answer_shape ignores the refusal clause
 - rejected: letting the loop call state-changing tools (actions belong to compose so check can see them); notes optional (Gemma then never notes: 0/6)
 - evidence: rp002 0/6 → rp003 0.06 (note-first); rp004/rp005 Score 0.147/0.157; after the shape fix rp006/rp007 (same seeds) A 0.194, $0.136, Score 0.163 (kit baseline 0.152 at $0.68); max prompt 5,349 tokens
+
+## 16:10 · Build 08: images per need, one image budget
+- decided_by: ai          # build ticket 08, from the image-inputs decision (read per need, lowest accurate budget)
+- why: a quarter of tasks open a photo ticket and could not be read; scans and the standing order hold answer-critical values
+- change: harness/vision.py (tickets until the first OPEN stamp, images the request names, operator-file images once per run, others on demand; one read per blob per run; transcripts as untrusted path-cited index units via Index.attach_text); chosen budget: the endpoint's single default for every image kind
+- rejected: tiling or upscaling for higher budgets (Pillow; no image kind measured below 100 %); transcribing every image at setup (≈ $0.08/run vs. $0.009 per need); Jev on images
+- evidence: harvester/eval_vision.py on 6 dev runs: tickets 103/103 found, stamps 315/315, request word recall 0.998, domains 35/35, standing orders 6/6, $0.00021/image; the provider ignores `detail` (298 prompt tokens for none/low/high); rp008/rp009 Score 0.284/0.244 (mean 0.264, was 0.163), image spend $0.008–0.010/run
