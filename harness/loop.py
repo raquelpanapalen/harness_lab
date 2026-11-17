@@ -204,6 +204,9 @@ def _note(rec: TaskRecord, view: Any, args: dict) -> str:
 def step(ctx: Any, rec: TaskRecord) -> State:
     """One loop step: one model call, its tool calls run, the results kept for the next prompt only."""
     cap = STEP_CAPS.get(rec.level or 2, 8)
+    if not rec.request:  # the task is in an unread photo ticket (build ticket 08): nothing to investigate yet
+        rec.errors.append("LOOP: no request text (open ticket is a photo, not read yet)")
+        return State.FALLBACK_SUBMIT
     if ctx.index is None or rec.task_id not in ctx.index.files or rec.loop_done or rec.loop_steps >= cap:
         return State.COMPOSE
     view = ctx.index.view(rec.task_id)

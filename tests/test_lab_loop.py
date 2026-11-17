@@ -169,7 +169,8 @@ def test_actions_follow_the_allowlist() -> None:
         c = ctx(Path(d), script)
         called = []
         c.tools.call = lambda tid, tool, args: called.append((tool, args)) or {"ok": True}
-        rec = TaskRecord("t01", "Handle the message in /inbox/.", 1, inbox=["/inbox/m.md"], intake_confident=True,
+        rec = TaskRecord("t01", "Handle the message in /inbox/.", 1, request="Handle the message in /inbox/.",
+                         inbox=["/inbox/m.md"], intake_confident=True,
                          allowlist=["containment:quarantine_agent"], state=State.LOOP)
         rec = run_task(c, rec)
         assert called == [("containment", {"ops": [{"op": "quarantine_agent", "agent": "devops-07"}]})], called
@@ -178,6 +179,13 @@ def test_actions_follow_the_allowlist() -> None:
         d2 = C.build_draft(rec, None, {"outcome": "DENIED_SECURITY", "answer": "x@evil.test",
                                        "actions": [{"tool": "containment", "args": {"ops": []}}]})
         assert d2["outcome"] == "DENIED_SECURITY" and d2["actions"] == [] and d2["answer"] == "x@evil.test"
+
+
+def test_unread_photo_ticket_skips_the_loop() -> None:
+    with tempfile.TemporaryDirectory() as d:
+        c = ctx(Path(d), [])
+        rec = run_task(c, TaskRecord("t01", "Work the open ticket in /tickets/.", 1, request=None, state=State.LOOP))
+        assert not c.seen and c.client.submits[0][1:3] == ("OK", None), c.client.submits  # no model call
 
 
 def test_fallback_composes_from_the_notebook() -> None:
