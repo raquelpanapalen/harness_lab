@@ -13,6 +13,7 @@ never leak.
 """
 from __future__ import annotations
 
+import copy
 import csv
 import io
 import json
@@ -176,12 +177,13 @@ def _regex_settings(items: list[str]) -> Settings:
         if re.search(r"not exposure|not count|not counted|don'?t count|delivered transfers only|only (?:delivered|"
                      r"successful)|leave .{0,30}out|never left|exclude|ignore", x):
             s.count_blocked = False
-        elif re.search(r"count it|all the same|counts? as|is exposure|include", x):
+        elif re.search(r"count it|all the same|counts? as|is exposure|include|\b(?:is|are) counted\b|"
+                       r"counted (?:exactly )?(?:like|as)|or not\b.{0,40}\bcounted", x):
             s.count_blocked = True
     x = item("repeated", "re-send", "resend", "twice", "overlap", "duplicat", "once")
     if x:
         if re.search(r"\bno de-?duplicat|overlaps included|add up|each (?:send|transfer|time)|counts? (?:again|twice)|"
-                     r"as many times|every send", x):
+                     r"as many times|every send|(?:do not|don'?t|never) merge|sum them", x):
             s.dedupe = False
         elif re.search(r"must not inflate|one record, one count|once|single time|distinct|de-?duplicat", x):
             s.dedupe = True
@@ -943,11 +945,17 @@ KEY_PREFIXES = ("/logs/audit/", "/logs/archive/", "/fleet/", "/artifacts/", "/se
 
 
 def facts_for(view: TaskView, judge: Judge, transcripts: dict[str, str] | None = None) -> Facts:
-    """Facts for a task, shared with every task whose fact-relevant files have the same blob hashes."""
+    """Facts for a task: the memoised facts are shared with every task whose fact-relevant files have the same blob
+    hashes; direct file reads (f.v, f.text, f.csv_rows, ...) go through this task's own view, since files outside
+    KEY_PREFIXES (/logs/access, /intel, /board, ...) differ between such tasks."""
     key = tuple(sorted((p, h) for p, h in view.files.items() if p.startswith(KEY_PREFIXES)))
     key += (id(judge), tuple(sorted((transcripts or {}).items())))
     with _CACHE_LOCK:
         f = _CACHE.get(key)
         if f is None:
             f = _CACHE[key] = Facts(view, judge, transcripts)
+    if f.v is view:
         return f
+    g = copy.copy(f)          # shares _memo and lock with the cached instance
+    g.v = view
+    return g

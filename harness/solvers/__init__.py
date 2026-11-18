@@ -60,9 +60,9 @@ def _load() -> None:
             importlib.import_module(f"{__name__}.{m.name}")
 
 
-def note(fact: str, units: list[Unit | None]) -> dict:
-    """A loop note backed by evidence units (handle-less notes are dropped by the loop)."""
-    return {"fact": fact, "sources": [u.source() for u in units if u is not None]}
+def note(fact: str, units: list[Unit | dict | None]) -> dict:
+    """A loop note backed by evidence units or citation dicts (handle-less notes are dropped by the loop)."""
+    return {"fact": fact, "sources": [u.source() if isinstance(u, Unit) else u for u in units if u]}
 
 
 def run(ctx: Any, rec: TaskRecord, registry: dict[str, Solver] | None = None,
