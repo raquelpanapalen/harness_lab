@@ -45,6 +45,8 @@ FAMILY_RX = {
     "dpa_deadline": re.compile(r"processing agreement", re.I),
     "status_claims": re.compile(r"/reports/status/", re.I),
     "mcp_audit": re.compile(r"/integrations/mcp/", re.I),
+    "canaries": re.compile(r"canar", re.I),
+    "containment": re.compile(r"^(?:\W*)(?:contain\b|full containment|please do the containment|containment for)", re.I),
     "board_injected": re.compile(r"injected board posts|board are injected|(?:posts|message id).*(?:instruct|tells) agents", re.I),
 }
 
@@ -141,6 +143,8 @@ def main() -> int:
             rec = TaskRecord(task_id=t["task_id"], instruction=t["instruction"], level=t.get("level"))
             rec.request, rec.family, rec.intake_confident = req, fam, True
             rec.answer_shape = answer_shape(req)
+            if fam == "containment":           # intake's allowlist for a containment task
+                rec.allowlist = ["containment:quarantine_agent", "containment:rotate_token", "containment:block_domain"]
             state = solvers.run(ctx, rec, enabled={fam})
             stats[fam]["n"] += 1
             if rec.draft is None:

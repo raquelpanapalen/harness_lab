@@ -213,3 +213,10 @@ Format example (ignored: it sits in a code block). Write your entries below it, 
 - change: wave4.rotation cites the token's inventory row and the calendar rows whose window (buffer included) overlapped the hours skipped before the slot; guards.schedule_rotation's window logic moved to _rotation_windows (behaviour unchanged), with rotation_blockers for the citations
 - rejected: standing-order sheet, runbook rotation lines, current-time line (0 hits each); every binding calendar row (same hits, 44 cited vs 19)
 - evidence: sweep on the first 10 dev runs, 8 rotation tasks, hit counts only: token row 8/19, blocking rows 11/19, both 19/19 with 0 extras; solver 19/19 cited 19; eval_wave4 rotation 8/8 and containment 22/22 still correct
+
+## 16:35 · Citations: trifecta evidence through CHECK, canaries and containment
+- decided_by: both        # the user chose to work on citations and the split; the evidence kinds were measured by hit counts
+- why: on the combined dev runs 4.9 of the 6.8 lost points were citations; a trifecta answer also lost 5 of 9 agents in CHECK
+- change: solvers.run passes a confident solver's notes on as evidence (CHECK's frame guard dropped correct ids that untrusted text also names); trifecta/delegation notes carry each agent's registry record; canaries also cite the transfer that carried each hit canary; containment NEEDS_CLARIFICATION cites each candidate's roster row; tests/check_solvers.py runs guards.check before grading, labels canaries/containment, --run-ids
+- rejected: containment without the 6-citation cap, or with roster/token rows for named targets (no extra hits, only extras)
+- evidence: rp003 t14 reproduced (9 → 4 agents without notes, 9 → 9 with); 39-run check with CHECK: 0 answers changed; canaries 30/46 → 46/46 (6 runs); containment 71/83 → 83/83 (10 runs)

@@ -177,6 +177,10 @@ def canaries(f, request: str) -> Result:
     hit = sorted(ids & set(ex.value["record_ids"]))
     r.answer = hit
     r.units = [u for c in hit if (u := f.v.find({"path": p, "record": c}))]
+    # plus the counting transfer(s) that carried each hit canary (dev: 30/46 → 46/46 citations)
+    from .facts.world import expand
+    hs = set(hit)
+    r.units += [t["unit"] for t in _counting(f, ex) if t["unit"] and hs & set(expand(t["range"]))]
     return _done(r, st, ex)
 
 
@@ -297,6 +301,11 @@ def breach_notification(f, request: str, allow: list[str]) -> Result:
     return _done(r, st, ex, comp)
 
 
+def _roster_unit(f, agent: str):
+    ev = f.roster().evidence
+    return f.v.find({"path": ev[0].path, "record": agent}) if ev else None
+
+
 def containment(f, request: str, allow: list[str]) -> Result:
     """Quarantine (with stand-ins), rotations at the scheduler's times, blocks: either everything the runbook calls for
     ("every compromised agent still running", "every exposed token", "every attacker domain") or what the request
@@ -334,6 +343,7 @@ def containment(f, request: str, allow: list[str]) -> Result:
         r.problems.append("an owner reference (\"…'s agent\") was not understood")
     if ambiguous:
         r.outcome, r.answer = "NEEDS_CLARIFICATION", sorted(set(ambiguous))
+        r.units = [u for a in r.answer if (u := _roster_unit(f, a))]   # each candidate's roster row
         r.confident = not r.problems
         return r
     if re.search(r"every compromised|all compromised", low):
