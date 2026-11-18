@@ -108,9 +108,28 @@ def test_failure_in_every_state() -> None:
 
 def test_fallback_submit_failure_terminates() -> None:
     with tempfile.TemporaryDirectory() as d:
-        c = ctx(Path(d), FakeClient([ArenaError("bad request", 400), ArenaError("bad request", 400)]))
-        rec = run_task(c, TaskRecord("t01", "x", 1))  # SUBMIT fails, then FALLBACK_SUBMIT fails too
+        c = ctx(Path(d), FakeClient([ArenaError("bad request", 400)] * 3))
+        rec = run_task(c, TaskRecord("t01", "x", 1))  # SUBMIT, FALLBACK_SUBMIT and its empty last rung all fail
         assert rec.state is State.DONE and not rec.submitted and rec.errors, rec
+
+
+def test_unserialisable_draft_still_submits() -> None:
+    class Unit:  # an evidence unit object where a locator dict belongs (rp002 t04)
+        def source(self):
+            return {"path": "/a.md", "line": 3}
+    with tempfile.TemporaryDirectory() as d:
+        c = ctx(Path(d))
+        bad = {**HANDLERS, State.SOLVE: lambda c, r: (setattr(r, "draft", {"outcome": "OK", "answer": ["x"],
+                                                                         "sources": [Unit(), 7], "actions": []})
+                                                      or State.SUBMIT)}
+        rec = run_task(c, TaskRecord("t01", "a JSON array", 1), bad)
+        assert rec.submitted and c.client.submits[0][3] == [{"path": "/a.md", "line": 3}], c.client.submits
+        c2 = ctx(Path(d))
+        bad2 = {**HANDLERS, State.SOLVE: lambda c, r: (setattr(r, "draft", {"outcome": "OK", "answer": {1, 2},
+                                                                          "sources": [], "actions": []})
+                                                       or State.SUBMIT)}
+        rec = run_task(c2, TaskRecord("t02", "a JSON array", 1, answer_shape="list"), bad2)
+        assert rec.submitted and c2.client.submits[0][2] == [], c2.client.submits  # empty last rung
 
 
 def test_transient_submit_errors_are_retried_and_409_counts() -> None:

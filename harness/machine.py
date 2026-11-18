@@ -195,13 +195,32 @@ def fallback_submit(ctx: Ctx, rec: TaskRecord) -> State:
         sub["answer"] = guards.rewrite_value(sub["answer"], set(), rec.rules or "")
     try:
         _send(ctx, rec, sub)
-    except Exception as e:  # noqa: BLE001 - nothing left to fall back to; record it and stop
+    except Exception as e:  # noqa: BLE001 - last rung: the right-shaped empty answer
         rec.errors.append(f"FALLBACK_SUBMIT: {type(e).__name__}: {e}")
+        if not rec.submitted and sub != empty_submission(shape):
+            try:
+                _send(ctx, rec, empty_submission(shape))
+            except Exception as e2:  # noqa: BLE001 - nothing left to fall back to; record it and stop
+                rec.errors.append(f"FALLBACK_SUBMIT empty: {type(e2).__name__}: {e2}")
     return State.DONE
+
+
+def _clean_sources(sources) -> list[dict]:
+    """Locator dicts only: evidence units become their locator, anything else is dropped (a submission must always
+    serialise)."""
+    out = []
+    for s in sources or []:
+        if hasattr(s, "source"):
+            s = s.source()
+        if isinstance(s, dict) and s.get("path") and s not in out:
+            out.append({k: v for k, v in s.items() if isinstance(v, (str, int, float))})
+    return out
 
 
 def _send(ctx: Ctx, rec: TaskRecord, sub: dict) -> None:
     """Submit once, retrying transport errors; a 409 means the platform already has a submission for this task."""
+    sub = {**sub, "sources": _clean_sources(sub.get("sources"))}
+    json.dumps(sub["answer"])  # fail here, not half-way, if the answer can't be sent
     for i in range(SUBMIT_TRIES):
         try:
             rec.result = ctx.client.submit(ctx.run_id, rec.task_id, sub["outcome"], sub["answer"], sub.get("sources"))
