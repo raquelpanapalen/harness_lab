@@ -199,3 +199,10 @@ Format example (ignored: it sits in a code block). Write your entries below it, 
 - why: confirm the replay grader against the real one for the finished harness (grader calibration)
 - change: none (measurement only); final submission impossible: /me reports final_window closed 2026-11-14 16:45 UTC, final_run_used false
 - evidence: run_QVhW_pCITnL1 (live dev, seed 2094029971, code 08cd2ab): 48/48 submitted, accuracy 0.949, cost_score 1, final_score 0.949, local spend $0.026 (replay held-out mean 0.929 at $0.029)
+
+## 15:14 · Inbox citations per outcome
+- decided_by: ai          # the human approved the citation split between the two sessions; evidence kinds chosen by hit count
+- why: inbox lost 1.80 points on rp002+rp003 (0/11 citations hit); route() cited nothing
+- change: harness/inbox.py cites the inbox message always, plus the change-log lines naming a refused sender (DENIED_SECURITY), each candidate's roster row (NEEDS_CLARIFICATION), the quarantined agent's roster row, or the recipient's contact row (send_message); block_domain / UNSUPPORTED cite the message alone
+- rejected: every message line (6x the citations, no extra hits), attacker-domain evidence for block_domain (0 hits), sender's contact row (0 hits)
+- evidence: candidate sweep over 39 dev runs (hit counts only): message alone 117/190 hits; per-outcome sets 190/190 with 0 extras. Solver on 10 runs: 47/47 hits, 49 cited

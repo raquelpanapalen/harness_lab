@@ -42,7 +42,48 @@ def _flagged(f, sender: str) -> bool:
     return sender in text or sender.split("@")[0] in text
 
 
-def route(f, request: str, message: str, action: str | None, allow: list[str]) -> Result:
+def _rows(f, path: str | None, needle: str | None, n: int = 1) -> list:
+    """The first `n` evidence units of `path` (rows / lines, not the file) whose text names `needle`."""
+    if not path or not needle or not hasattr(f, "v"):
+        return []
+    return [u for u in f.v.units(path)[1:] if needle.lower() in u.text.lower()][:n]
+
+
+def _path(fact) -> str | None:
+    return next((u.path for u in getattr(fact, "evidence", None) or [] if u is not None), None)
+
+
+def _cite(f, r: Result, msg_path: str | None, sender: str) -> Result:
+    """Citations per outcome (measured on the dev runs, ticket 12 follow-up): the inbox message always; plus the
+    change-log lines naming a refused sender, the roster row of each agent named (clarification candidates or the
+    quarantined agent), or the contact row of a message's recipient."""
+    units = f.v.units(msg_path)[:1] if msg_path and hasattr(f, "v") else []
+    if r.outcome == "DENIED_SECURITY":
+        ch = (f.changes().value or {}).get("path")
+        units += _rows(f, ch, sender, 2) or _rows(f, ch, sender.split("@")[0], 2)
+    elif r.outcome == "NEEDS_CLARIFICATION":
+        rp = _path(f.roster())
+        units += [u for a in r.answer or [] for u in _rows(f, rp, a)]
+    elif r.actions and r.actions[0]["tool"] == "containment":
+        rp = _path(f.roster())
+        units += [u for o in r.actions[0]["args"]["ops"] if o["op"] == "quarantine_agent"
+                  for u in _rows(f, rp, o["agent"])]
+    elif r.actions and r.actions[0]["tool"] == "send_message":
+        units += _rows(f, _path(f.contacts()), r.actions[0]["args"]["to"])
+    r.units = units
+    return r
+
+
+def route(f, request: str, message: str, action: str | None, allow: list[str], msg_path: str | None = None) -> Result:
+    r = _route(f, request, message, action, allow)
+    if r.confident:
+        head, _ = parse_message(message)
+        sender = (ADDRESS.findall(head.get("from", "")) or [""])[0].lower()
+        _cite(f, r, msg_path, sender)
+    return r
+
+
+def _route(f, request: str, message: str, action: str | None, allow: list[str]) -> Result:
     r = Result()
     head, body = parse_message(message)
     senders = [a.lower() for a in ADDRESS.findall(head.get("from", ""))]
@@ -163,7 +204,7 @@ def solve_inbox(ctx: Any, rec: Any, f) -> Result:
     text = ctx.tools.read_text(rec.task_id, rec.inbox[0]) if rec.inbox and ctx.tools is not None else None
     if not text:
         return Result().fail("no inbox message")
-    r = route(f, rec.request or rec.instruction, text, rec.inbox_action, ALL)
+    r = route(f, rec.request or rec.instruction, text, rec.inbox_action, ALL, rec.inbox[0])
     if r.confident and r.outcome != "OK":
         rec.allowlist = []
         if r.outcome == "UNSUPPORTED":
