@@ -186,3 +186,10 @@ Format example (ignored: it sits in a code block). Write your entries below it, 
 - change: harness/inbox.py, harness/wave4.py, harness/solvers/wave4.py (10 families + attacker domains + partner draft); a family is enabled only at 0 confidently-wrong answers over 39 dev runs; attacker-domain scans read only short plain lines (planted notes carry fake indicators); gap checks and unconfirmed token statuses stay with the loop; submission always serialises
 - rejected: enabling attacker domains with gap checks (31/31 confident answers wrong); bullet-only scan lines (dropped real indicators)
 - evidence: harvester/eval_wave4.py 39 runs (table in build/13); replay rp002_run_NLzokmjwLUfD 0.934 ($0.017), rp003_run_ObCe2yzg_xMy 0.924 ($0.028), was 0.368 after wave 1
+
+## 15:20 · Build 15: held-out milestone, lab harness becomes the default
+- decided_by: ai          # ticket 15 under the human's standing directive; the ticket itself says the winner becomes the default
+- why: the milestone measures the finished harness on the 5 runs never used for development
+- change: main.py default --harness lab; README result table; fresh runs move an earlier same-id run directory aside (report.py read a kit-baseline run's spend); zoneinfo fallback for slim images
+- rejected: reading held-out traces to explain the lowest run (would end the hold-out)
+- evidence: held-out rp001–rp005 on --only-runs 5: A 0.907/0.948/0.912/0.943/0.935, cost $0.050/$0.020/$0.026/$0.021/$0.028, mean Score 0.929 at $0.029 (dev seeds 0.929 at $0.023; kit baseline 0.152; AIT 0.750)

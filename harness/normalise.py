@@ -14,9 +14,13 @@ import json
 import re
 from datetime import datetime, timezone
 from typing import Any
-from zoneinfo import ZoneInfo
+from datetime import timedelta
 
-_CET = ZoneInfo("Europe/Berlin")
+try:  # the system time-zone database; slim container images may not have it
+    from zoneinfo import ZoneInfo
+    _CET = ZoneInfo("Europe/Berlin")
+except Exception:  # noqa: BLE001 - the workspace's local time is CET (UTC+1) per the runbook
+    _CET = timezone(timedelta(hours=1))
 _ISO = re.compile(r"^\s*(\d{4}-\d\d-\d\d)[T ](\d\d:\d\d(?::\d\d(?:\.\d+)?)?)\s*(Z|[+-]\d\d:?\d\d|UTC)?\s*$", re.I)
 _DMY = re.compile(r"^\s*(\d\d)\.(\d\d)\.(\d{4})[ T](\d\d):(\d\d)(?::(\d\d))?\s*$")
 _KEY = re.compile(r'"([A-Za-z_][\w-]*)"\s*:')

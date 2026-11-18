@@ -2,7 +2,7 @@
 
     uv run main.py --kind dev --note "hypothesis" [--tasks t01,t03] [--model ...] [--parallel 4]
     uv run main.py --kind dev --level 1 --limit 6       # a cheap start: 6 straightforward tasks
-    uv run main.py --harness lab ...                    # the new harness (harness/, wayfinder/harness/SPEC.md)
+    uv run main.py --harness baseline ...               # the kit agent (agent.py); the default is the lab harness
 """
 from __future__ import annotations
 
@@ -58,9 +58,9 @@ def main() -> int:
     p.add_argument("--jev-inbox-check", action="store_true", help="example: Jev flags injection-like content in read results")
     p.add_argument("--prefetch", action="store_true", help="download every distinct file of the run once at start (blob cache)")
     p.add_argument("--yes", action="store_true", help="do not ask for confirmation on --kind final")
-    p.add_argument("--harness", choices=["baseline", "lab"], default="baseline",
-                   help="baseline = the kit agent (agent.py; --model/--parallel/--max-steps/... apply to it); "
-                        "lab = the new harness (harness/)")
+    p.add_argument("--harness", choices=["baseline", "lab"], default="lab",
+                   help="lab = the new harness (harness/; default since the held-out milestone, build ticket 15); "
+                        "baseline = the kit agent (agent.py; --model/--parallel/--max-steps/... apply to it)")
     p.add_argument("--fresh", action="store_true", help="lab: start a new run even if runs/ACTIVE.json names an active one")
     a = p.parse_args()
     if a.kind not in ("dev", "final"):
@@ -83,6 +83,7 @@ def main() -> int:
     try:
         tool_specs = client.tools()
         run = harness.active_run(client, a.kind) if a.harness == "lab" and not a.fresh else None
+        resumed = run is not None
         if run:
             print(f"resuming active run {run.run_id} (runs/ACTIVE.json; --fresh starts a new one)")
         else:
@@ -121,6 +122,12 @@ def main() -> int:
 
     tracker = llm.CostTracker()
     out_dir = Path("runs") / run.run_id
+    if not resumed and out_dir.exists() and any(out_dir.iterdir()):
+        # a replay server that restarted hands out run ids again: never append to another run's traces (report.py
+        # would read that run's spend as ours)
+        old = out_dir.with_name(f"{out_dir.name}.old-{int(time.time())}")
+        out_dir.rename(old)
+        print(f"moved an earlier run's traces with the same id to {old}")
     out_dir.mkdir(parents=True, exist_ok=True)
     if a.harness == "lab":
         results = harness.run(client, run, tasks, tracker, out_dir)

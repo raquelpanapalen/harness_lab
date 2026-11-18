@@ -4,6 +4,23 @@ A local lab for building and evaluating agents for Harness Arena: an offline rep
 Based on the Harness Arena Python starter kit: a Task API client plus a deliberately simple baseline agent (a tool-calling loop on the fixed small model, optional Jev example).
 Fork it, break it, make it better. Only the harness is yours to improve: the models are fixed.
 
+## Result: the lab harness
+
+`main.py` runs the lab harness (`harness/`, spec in [`wayfinder/harness/SPEC.md`](wayfinder/harness/SPEC.md)) by
+default; `--harness baseline` runs the kit agent. Code solvers over a per-run fact layer answer most task families,
+deterministic guards check every action, and a small notebook loop on the fixed model covers the rest.
+
+| measured on | runs | A | cost per run | C | Score |
+|---|---|---|---|---|---|
+| kit baseline (dev) | 8 | 0.262 | $0.68 | 0.159 | 0.152 |
+| lab harness, dev seeds | 2 | 0.929 | $0.023 | 1.000 | 0.929 |
+| **lab harness, 5 held-out runs** | 5 | **0.929** | **$0.029** | 0.999 | **0.929** |
+
+Leaderboard for comparison: AIT 0.750, Donaufriends 0.524. Score = A · (0.5 + 0.5 · C), C log-scaled from 1 at $0.049
+to 0 at $1.135 per run. Held-out runs: rp001–rp005 on `--only-runs 5` (run_CrCkPblWSN-Q, run_bV0bxqQTiZRa,
+run_aF3iOYCGwFiX, run_Wxvjw3WImrpJ, run_r1mftr6lxlr3), all 240 tasks submitted. Build log: `JOURNAL.md` and
+[`wayfinder/harness/build/`](wayfinder/harness/build/README.md).
+
 ## Local development (offline replay)
 
 This fork develops fully offline: `harvester/` saved 44 real dev runs (2,112 tasks, files, expected answers, recorded
