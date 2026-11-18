@@ -57,24 +57,28 @@ class Judge:
     def key(text: str) -> str:
         return hashlib.sha256(reveal(text).encode()).hexdigest()
 
-    def judge(self, text: str) -> Verdict:
+    def judge(self, text: str, question: str | None = None) -> Verdict:
+        """`question`: another yes/no criterion (e.g. the runbook's own definition), cached separately."""
         shown = reveal(text)
         k = hashlib.sha256(shown.encode()).hexdigest()
+        if question:
+            k = hashlib.sha256((question + "\0" + shown).encode()).hexdigest()
         with self.lock:
             if k in self.cache:
                 self.stats["cached"] += 1
                 return self.cache[k]
-        v = self._ask(shown)
+        v = self._ask(shown, question)
         with self.lock:
             if v.by != "error":
                 self.cache[k] = v
                 self._save()
         return v
 
-    def _ask(self, shown: str) -> Verdict:
+    def _ask(self, shown: str, question: str | None = None) -> Verdict:
         state = {"data": shown[:MAX_CHARS]}
+        q = question or QUESTION
         try:
-            ans = self.decide(state, {"instr": llm.noul(QUESTION)})
+            ans = self.decide(state, {"instr": llm.noul(q)})
             self.stats["jev"] += 1
             p = float((ans.get("instr") or {}).get("noul"))
         except Exception:  # noqa: BLE001 - no verdict: callers treat it as unknown
@@ -82,7 +86,7 @@ class Judge:
             return Verdict(False, 0.5, "error")
         if LOW < p < HIGH and self.chat is not None:
             try:
-                msg = [{"role": "system", "content": GEMMA_PROMPT},
+                msg = [{"role": "system", "content": q + "\nReply with exactly one word: yes or no."},
                        {"role": "user", "content": "<data>\n" + shown[:MAX_CHARS] + "\n</data>"}]
                 out = self.chat(msg, max_tokens=8, temperature=0)
                 self.stats["gemma"] += 1

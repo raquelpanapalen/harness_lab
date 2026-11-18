@@ -37,6 +37,15 @@ FAMILY_RX = {
     "compromised": re.compile(r"compromised in incident", re.I),
     "patient_zero": re.compile(r"entry point", re.I),
     "timeline": re.compile(r"\bA: .*\bB: ", re.S),
+    "leaked_tokens": re.compile(r"token ids leaked|leaked in full|value leaked", re.I),
+    "access_log": re.compile(r"/logs/access/requests", re.I),
+    "access_review": re.compile(r"pending_access_requests", re.I),
+    "delegation_chain": re.compile(r"shortest delegation chain", re.I),
+    "lethal_trifecta": re.compile(r"lethal trifecta", re.I),
+    "dpa_deadline": re.compile(r"processing agreement", re.I),
+    "status_claims": re.compile(r"/reports/status/", re.I),
+    "mcp_audit": re.compile(r"/integrations/mcp/", re.I),
+    "board_injected": re.compile(r"injected board posts|board are injected|(?:posts|message id).*(?:instruct|tells) agents", re.I),
 }
 
 
@@ -68,6 +77,30 @@ class Ctx:
         self.events.append((task_id, event))
 
 
+def progress_logger():
+    """Per-run progress on stderr and in /tmp/claude-1000/check_solvers.progress (tail -f it while a check runs)."""
+    path = Path("/tmp/claude-1000/check_solvers.progress")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("")
+
+    def log(line: str | None) -> None:
+        line = line or f"{time.strftime('%H:%M:%S')} done"
+        print(line, file=sys.stderr, flush=True)
+        with path.open("a") as fh:
+            fh.write(line + "\n")
+    return log
+
+
+def diff_size(got, exp) -> str:
+    """How far off an answer is, without printing expected values (sizes of the set differences only)."""
+    def items(x):
+        if isinstance(x, dict):
+            return {f"{k}:{v}" for k, vs in x.items() for v in (vs if isinstance(vs, list) else [vs])}
+        return {json.dumps(v) for v in x} if isinstance(x, list) else {json.dumps(x)}
+    g, e = items(got), items(exp)
+    return f"missing {len(e - g)}, extra {len(g - e)}"
+
+
 def family_of(req: str) -> str | None:
     return next((f for f, rx in FAMILY_RX.items() if rx.search(req or "")), None)
 
@@ -84,7 +117,13 @@ def main() -> int:
     bad = []
     t0 = time.time()
     runs = dev_runs()[:n] if n else dev_runs()
-    for rdir in runs:
+    if "--run-ids" in args:                       # re-check named runs only (comma-separated)
+        want = set(args[args.index("--run-ids") + 1].split(","))
+        runs = [r for r in dev_runs() if r.name in want]
+    progress = progress_logger()
+    for i_run, rdir in enumerate(runs, 1):
+        t_run, n_before = time.time(), sum(s["n"] for s in stats.values())
+        progress(f"{time.strftime('%H:%M:%S')} [{i_run}/{len(runs)}] {rdir.name}: start")
         facts_world._CACHE.clear()
         idx = build(rdir)
         ctx = Ctx(idx, tracker)
@@ -116,16 +155,29 @@ def main() -> int:
             g = grade(t, sub, ws)
             scores[fam].append(g["score"])
             stats[fam]["score_sum"] += g["score"]
+            stats[fam]["src_hit"] += g.get("sources_hit") or 0
+            stats[fam]["src_exp"] += g.get("sources_expected") or 0
+            stats[fam]["src_cited"] += len(sub.get("sources") or [])
+            stats[fam]["answer_ok"] += g.get("answer_score", 0) >= 0.99
             if g["score"] < 0.99:
-                bad.append((rdir.name, t["task_id"], fam, f"score {g['score']:.2f}", g.get("feedback"),
-                            json.dumps(sub["answer"])[:150], json.dumps(t["expected_answer"])[:150]))
+                bad.append((rdir.name, t["task_id"], fam, t.get("level"), f"score {g['score']:.2f}", g.get("feedback"),
+                            diff_size(sub["answer"], t["expected_answer"]), f"cited {len(sub.get('sources') or [])}"))
+        n_tasks = sum(s["n"] for s in stats.values()) - n_before
+        conf = sum(s["confident"] for s in stats.values())
+        mean = sum(sum(v) for v in scores.values()) / max(1, sum(len(v) for v in scores.values()))
+        progress(f"{time.strftime('%H:%M:%S')} [{i_run}/{len(runs)}] {rdir.name}: {n_tasks} tasks in "
+                 f"{time.time() - t_run:.0f}s | total {time.time() - t0:.0f}s, confident {conf}, mean score "
+                 f"{mean:.3f}, spend ${tracker.total:.4f}")
+    progress(None)
     print(f"{len(runs)} runs in {time.time() - t0:.0f}s, spend ${tracker.total:.4f}")
-    print(f"{'family':<14} {'n':>4} {'confident':>10} {'score|conf':>11} {'family mean':>12}")
+    print(f"{'family':<16} {'n':>4} {'confident':>10} {'score|conf':>11} {'family mean':>12} {'answer ok':>10} "
+          f"{'src hit/exp/cited':>18}")
     for fam in sorted(stats):
         s = stats[fam]
         conf = s["confident"]
-        print(f"{fam:<14} {s['n']:>4} {conf:>10} {s['score_sum'] / conf if conf else 0:>11.3f} "
-              f"{sum(scores[fam]) / len(scores[fam]):>12.3f}")
+        print(f"{fam:<16} {s['n']:>4} {conf:>10} {s['score_sum'] / conf if conf else 0:>11.3f} "
+              f"{sum(scores[fam]) / len(scores[fam]):>12.3f} {s['answer_ok']:>10} "
+              f"{s['src_hit']:>6}/{s['src_exp']}/{s['src_cited']}")
     for b in bad[: (len(bad) if verbose else 15)]:
         print("   ", b)
     return 0

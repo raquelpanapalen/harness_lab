@@ -1,7 +1,7 @@
 """Decoders run before any judgment (SPEC §5): hidden or encoded text is made visible, so the judge sees what an agent
 reading the artifact would act on. Pure functions, no model.
 
-    reveal(text) -> text with zero-width characters removed, homoglyphs folded, %-escapes and HTML entities decoded,
+    reveal(text) -> text with zero-width characters removed, Unicode tag characters decoded, homoglyphs folded, %-escapes and HTML entities decoded,
                     and every decodable base64 / hex run appended as "[decoded base64: ...]".
 """
 from __future__ import annotations
@@ -26,6 +26,8 @@ _HOMO = str.maketrans({
 
 B64_RX = re.compile(r"(?<![A-Za-z0-9+/=_-])[A-Za-z0-9+/_-]{16,}={0,2}(?![A-Za-z0-9+/=_-])")
 HEX_RX = re.compile(r"(?<![0-9A-Fa-f])(?:[0-9A-Fa-f]{2}[\s:]?){12,}(?![0-9A-Fa-f])")
+HEX_PLAIN_RX = re.compile(r"(?<![0-9A-Fa-f])(?:[0-9A-Fa-f]{2}){12,}(?![0-9A-Fa-f])")   # "ref:7265…" (no separators)
+TAG_RX = re.compile("[\U000E0020-\U000E007E]+")   # Unicode tag characters: invisible copies of ASCII
 
 
 def fold(text: str) -> str:
@@ -59,18 +61,28 @@ def decode_runs(text: str) -> list[tuple[str, str]]:
                 out.append(("base64", d))
                 out += [(f"base64/{k}", x) for k, x in decode_runs(d)][:2]
                 break
-    for m in HEX_RX.finditer(text):
+    seen = set()
+    for m in list(HEX_RX.finditer(text)) + list(HEX_PLAIN_RX.finditer(text)):
         try:
             d = _printable(bytes.fromhex(re.sub(r"[\s:]", "", m.group(0))))
         except ValueError:
             d = None
-        if d:
+        if d and d not in seen:
+            seen.add(d)
             out.append(("hex", d))
     return out
 
 
+def tag_text(text: str) -> str:
+    """Text hidden in Unicode tag characters (U+E0020..E007E map to ASCII)."""
+    return " ".join("".join(chr(ord(c) - 0xE0000) for c in m.group(0)) for m in TAG_RX.finditer(text))
+
+
 def reveal(text: str) -> str:
-    t = fold(text)
+    hidden = tag_text(text)
+    t = fold(TAG_RX.sub("", text).replace("\U000E0001", "").replace("\U000E007F", ""))
+    if hidden:
+        t += f"\n[decoded unicode tags: {hidden}]"
     if "%" in t:
         t2 = unquote(t)
         if t2 != t:

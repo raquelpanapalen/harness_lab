@@ -165,3 +165,17 @@ Format example (ignored: it sits in a code block). Write your entries below it, 
 - change: harness/solvers/ (Solution/REGISTRY/ENABLED/register/Precondition; run() = SOLVE handler: confident → CHECK, else notes → LOOP, any exception → LOOP); wave 1 in core.py (timeline: one Jev choice maps each lettered event to the event catalogue, times from the audit log, board, SIEM sheet or change log); machine.SOLVE wired
 - rejected: letting a solver end a task by itself (crash or missing input must cost nothing: the loop takes over); enabling by family alone (the solver's own preconditions decide too)
 - evidence: tests/check_solvers.py, 39 dev runs: compromised 45/45 at 1.000, patient zero 46/46 at 1.000, timeline 117 at 0.999 (loop 0.531/0.281/0.302); replay seed 125823749: rp008/rp010 Score 0.284/0.255 → rp001 0.368 (A 0.468, $0.189), the 9 wave-1 tasks 1.00
+
+## 13:48 · Build 11: wave-2 solvers (tokens, access log, access review, delegation, trifecta), all enabled
+- decided_by: ai          # build ticket 11; the user delegated the remaining build to the sessions
+- why: the loop scored 0.00–0.30 on these families; each is a rule over workspace files (policy clauses, fingerprints, the permission graph)
+- change: harness/solvers/wave2.py. access-log POLICY.md parsed per clause (unknown clause → loop); a ticket exempts a request only when it is the request's own; leaked values matched by sha256_12 incl. wrapped/split values; access review simulates each request alone on the current graph; permission answers cite the registry by path + every post-export change. facts_for now gives each task its own view for direct file reads (f18a39c)
+- rejected: any matching ticket exempts (access log 0.87 vs 1.000); citing every reviewed request (extras: 0.909 vs 0.995) or the policy file; citing denial reasons (no hits)
+- evidence: tests/check_solvers.py, 39 dev runs: leaked_tokens 117/117 1.000, access_log 117/117 1.000, access_review 117/117 0.989, delegation_chain 24/24 1.000, lethal_trifecta 43/43 0.958 (loop 0.052/0.055/0.297/0.000/0.067)
+
+## 13:50 · Build 14: wave-5 families answered by code around bounded judgments
+- decided_by: ai          # build ticket 14; loop vs code-only decided by dev Score
+- why: loop Scores board 0.035, MCP 0.385, status claims 0.135, DPA 0.678; the model is only needed for "is this an instruction" and for reading images
+- change: harness/solvers/wave5.py (board prefilter by digit-normalised repeats + split-post joining + two judgments that must both say yes; MCP policy rules parsed, descriptions judged against the policy's wording, manifest hash vs newest approval; 19 status-claim templates over audit events; DPA register → base clause/signatory → signed effective amendments, latest wins); decode.reveal decodes Unicode tag characters and plain hex runs; Judge.judge(text, question) for a runbook/policy criterion
+- rejected: judging every board post (≈950 per board) or only by the runbook definition (false positive on a quoted training example) or only generically (false positive on a maintenance notice); counting blocked transfers as made; treating a missing delegate result as contradicting "declined"
+- evidence: tests/check_solvers.py, 39 dev runs: board 117/117 confident at 0.988, MCP 0.952, status claims 0.851 → ~0.94 after the new template, DPA 48/48 1.000; split-marker fix re-checked on the 28 affected runs (imperfect board answers 13 → 6, no extras); eval spend $0.14
