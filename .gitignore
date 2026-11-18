@@ -14,3 +14,6 @@ examples/pi/pi-agent/*
 # harvested dataset and local replay output (large, contains expected answers)
 harvester/data/
 harvester/replay_results/
+
+# Claude Code local state (agent worktrees, settings)
+.claude/
