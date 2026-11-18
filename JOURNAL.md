@@ -220,3 +220,10 @@ Format example (ignored: it sits in a code block). Write your entries below it, 
 - change: solvers.run passes a confident solver's notes on as evidence (CHECK's frame guard dropped correct ids that untrusted text also names); trifecta/delegation notes carry each agent's registry record; canaries also cite the transfer that carried each hit canary; containment NEEDS_CLARIFICATION cites each candidate's roster row; tests/check_solvers.py runs guards.check before grading, labels canaries/containment, --run-ids
 - rejected: containment without the 6-citation cap, or with roster/token rows for named targets (no extra hits, only extras)
 - evidence: rp003 t14 reproduced (9 → 4 agents without notes, 9 → 9 with); 39-run check with CHECK: 0 answers changed; canaries 30/46 → 46/46 (6 runs); containment 71/83 → 83/83 (10 runs)
+
+## 16:05 · Partner draft and first-token citations
+- decided_by: ai          # part of the human-approved citation split; evidence kinds chosen by hit count, then validated on runs not used to choose them
+- why: partner_draft lost 0.73 points (2/10 hits) and first_token 0.30 (4/8) on rp002+rp003
+- change: partner_draft cites every counting transfer plus the internal-notes lines that state a fact the draft repeats (record count, a destination domain, the hh:mm time, patient zero's agent), no longer the notes file or patient zero's events; first_token adds the owner's roster row and contact row to the read event and inventory row
+- rejected: patient-zero events, standing order, incident-id lines, whole notes file (0 hits each); all notes lines (same hits, 4x the citations); registry record of the owner (0 hits)
+- evidence: chosen on dev runs 1–10, validated on 11–39 (hit counts only). partner_draft: 178/178 on 11–39 (old 27/178), 232/232 on all 39 with extras within the free 2; first_token: 88/88 on 11–39 with 0 extras, 120/120 on all 39; rotation (6c35f84) 114/114 on 11–39
