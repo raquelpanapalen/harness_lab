@@ -86,7 +86,9 @@ def run(ctx: Any, rec: TaskRecord, registry: dict[str, Solver] | None = None,
     log({"event": "solver", "family": fam, "confident": sol.confident, "why": sol.why,
          "answer": sol.answer if sol.confident else None, "sources": len(sol.sources), "actions": len(sol.actions)})
     if sol.confident:
-        rec.draft = {"outcome": sol.outcome, "answer": sol.answer, "sources": sol.sources, "actions": sol.actions}
+        # citations are locator dicts: a solver that hands over an evidence Unit gets it converted, not a crash at submit
+        srcs = [s.source() if isinstance(s, Unit) else s for s in sol.sources if s]
+        rec.draft = {"outcome": sol.outcome, "answer": sol.answer, "sources": srcs, "actions": sol.actions}
         return State.CHECK
     rec.notes += [n for n in sol.notes if n.get("sources")]
     return State.LOOP

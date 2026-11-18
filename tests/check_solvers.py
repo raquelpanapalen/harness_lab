@@ -149,6 +149,12 @@ def main() -> int:
                 bad.append((rdir.name, t["task_id"], fam, "not confident", why))
                 scores[fam].append(0.0)
                 continue
+            try:
+                json.dumps(rec.draft)                 # what SUBMIT sends must serialise (rp002 lost a task to a Unit)
+            except TypeError as e:
+                bad.append((rdir.name, t["task_id"], fam, "draft not JSON", str(e)))
+                scores[fam].append(0.0)
+                continue
             stats[fam]["confident"] += 1
             ws = T.Workspace(files[t["task_id"]], DATA / "blobs", {}, intel)
             sub = {k: v for k, v in rec.draft.items() if k != "actions"}

@@ -98,6 +98,18 @@ def test_forced_precondition_failure_still_submits():
     assert out.state is State.DONE and out.submitted and sent == [("OK", [])], (out.state, sent, out.errors)
 
 
+def test_unit_sources_become_locators():
+    import json
+
+    from harness.index import Unit
+    u = Unit(path="/a.csv", kind="record", loc={"record": "R-1"}, text="R-1,x")
+    reg = {"fam": lambda c, r, f: Solution(answer=["a"], sources=[u, {"path": "/b"}, None], confident=True)}
+    r = rec()
+    solvers.run(Ctx(), r, reg, {"fam"})
+    assert r.draft["sources"] == [{"path": "/a.csv", "record": "R-1"}, {"path": "/b"}]
+    json.dumps(r.draft)
+
+
 def test_registry_loads_modules():
     assert isinstance(solvers.REGISTRY, dict) and solvers.ENABLED <= set(solvers.REGISTRY)
 

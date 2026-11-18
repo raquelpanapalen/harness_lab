@@ -208,7 +208,7 @@ def mcp_audit(ctx: Any, rec: TaskRecord, facts) -> Solution:
             ap = approved.get(name)
             if ap is None or ap[1] != (f.v.files.get(p) or "").lower():
                 why.append("hash differs from the newest approved" if ap else "not on the approved list")
-                srcs += [x for x in (ap[2] if ap else None,) if x]
+                srcs += [ap[2].source()] if ap and ap[2] else []
         if q:
             for where, text in _descriptions(man):
                 vs = [f.judge.judge(text, q), f.judge.judge(text)]
