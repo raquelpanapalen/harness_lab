@@ -89,6 +89,9 @@ def run(ctx: Any, rec: TaskRecord, registry: dict[str, Solver] | None = None,
         # citations are locator dicts: a solver that hands over an evidence Unit gets it converted, not a crash at submit
         srcs = [s.source() if isinstance(s, Unit) else s for s in sol.sources if s]
         rec.draft = {"outcome": sol.outcome, "answer": sol.answer, "sources": srcs, "actions": sol.actions}
+        # the notes are the evidence behind the answer: CHECK's frame guard keeps an id that untrusted text also
+        # names only when evidence backs it (rp003 t14 lost 5 of 9 trifecta agents without them)
+        rec.notes += [n for n in sol.notes if n.get("sources")]
         return State.CHECK
     rec.notes += [n for n in sol.notes if n.get("sources")]
     return State.LOOP

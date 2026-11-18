@@ -313,6 +313,20 @@ def _current(request: str) -> bool:
     return not ("registry export" in r and not re.search(r"\bcurrent", r))
 
 
+def _record(f: Facts, agent: str) -> Unit | None:
+    """The agent's own record in the registry export (structured evidence naming it)."""
+    reg = f.registry().value or {}
+    return f.v.find({"path": reg.get("path"), "record": agent}) if reg.get("path") else None
+
+
+def chain_records(f: Facts, g: dict, agent: str, cls: dict[str, str]) -> list:
+    """Registry records of the agents through which `agent` reaches each trifecta class."""
+    out = []
+    for k in ("private", "untrusted", "outbound"):
+        out += [_record(f, a) for a in shortest_chain(g, agent, _class_scope(f, g, agent, cls, k))]
+    return out
+
+
 def _class_scope(f: Facts, g: dict, agent: str, cls: dict[str, str], k: str) -> str:
     """One scope of class k that agent reaches (the nearest one, ties by name)."""
     best = None
@@ -336,7 +350,9 @@ def lethal_trifecta(ctx: Any, rec: TaskRecord, facts) -> Solution:
     ev = {a: [u for k in ("private", "untrusted", "outbound")
               for u in why_scope(f, g, prov, a, _class_scope(f, g, a, cls, k))] for a in answer}
     srcs = permission_sources(f, prov, current)
-    notes = [note(f"{a} has private data + untrusted input + outbound (effective)", ev[a]) for a in answer]
+    notes = [note(f"{a} has private data + untrusted input + outbound (effective)",
+                  [_record(f, a)] + [u for u in ev[a] if isinstance(u, Unit)] + chain_records(f, g, a, cls))
+             for a in answer]
     return Solution(answer=answer, sources=srcs, confident=True, notes=notes)
 
 
@@ -385,7 +401,8 @@ def delegation_chain(ctx: Any, rec: TaskRecord, facts) -> Solution:
     chain = shortest_chain(g, start, sc[0])
     ev = why_scope(f, g, prov, start, sc[0])
     srcs = permission_sources(f, prov, current)
-    notes = [note(f"delegation chain {start} → {sc[0]}: {chain or 'unreachable'}", ev)]
+    notes = [note(f"delegation chain {start} → {sc[0]}: {chain or 'unreachable'}",
+                  [_record(f, a) for a in chain] + [u for u in ev if isinstance(u, Unit)])]
     return Solution(answer=chain, sources=srcs, confident=True, notes=notes)
 
 

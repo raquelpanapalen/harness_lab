@@ -149,6 +149,13 @@ def main() -> int:
                 bad.append((rdir.name, t["task_id"], fam, "not confident", why))
                 scores[fam].append(0.0)
                 continue
+            if "--no-check" not in args:            # the harness runs CHECK (guards) between SOLVE and SUBMIT
+                from harness import guards
+                before = json.dumps(rec.draft.get("answer"), sort_keys=True)
+                rec.draft, problems = guards.check(ctx, rec, rec.draft)
+                if json.dumps(rec.draft.get("answer"), sort_keys=True) != before:
+                    stats[fam]["changed_by_check"] += 1
+                    bad.append((rdir.name, t["task_id"], fam, "answer changed by CHECK", problems[:2]))
             try:
                 json.dumps(rec.draft)                 # what SUBMIT sends must serialise (rp002 lost a task to a Unit)
             except TypeError as e:
@@ -183,7 +190,8 @@ def main() -> int:
         conf = s["confident"]
         print(f"{fam:<16} {s['n']:>4} {conf:>10} {s['score_sum'] / conf if conf else 0:>11.3f} "
               f"{sum(scores[fam]) / len(scores[fam]):>12.3f} {s['answer_ok']:>10} "
-              f"{s['src_hit']:>6}/{s['src_exp']}/{s['src_cited']}")
+              f"{s['src_hit']:>6}/{s['src_exp']}/{s['src_cited']}"
+              + (f"  CHECK changed {s['changed_by_check']}" if s["changed_by_check"] else ""))
     for b in bad[: (len(bad) if verbose else 15)]:
         print("   ", b)
     return 0
