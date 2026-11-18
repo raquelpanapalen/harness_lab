@@ -206,3 +206,10 @@ Format example (ignored: it sits in a code block). Write your entries below it, 
 - change: harness/inbox.py cites the inbox message always, plus the change-log lines naming a refused sender (DENIED_SECURITY), each candidate's roster row (NEEDS_CLARIFICATION), the quarantined agent's roster row, or the recipient's contact row (send_message); block_domain / UNSUPPORTED cite the message alone
 - rejected: every message line (6x the citations, no extra hits), attacker-domain evidence for block_domain (0 hits), sender's contact row (0 hits)
 - evidence: candidate sweep over 39 dev runs (hit counts only): message alone 117/190 hits; per-outcome sets 190/190 with 0 extras. Solver on 10 runs: 47/47 hits, 49 cited
+
+## 15:31 · Rotation citations: token row + blocking calendar rows
+- decided_by: ai          # part of the human-approved citation split; evidence kinds chosen by hit count
+- why: rotation lost 0.90 points on rp002+rp003 (0/7 citations hit); the solver cited nothing
+- change: wave4.rotation cites the token's inventory row and the calendar rows whose window (buffer included) overlapped the hours skipped before the slot; guards.schedule_rotation's window logic moved to _rotation_windows (behaviour unchanged), with rotation_blockers for the citations
+- rejected: standing-order sheet, runbook rotation lines, current-time line (0 hits each); every binding calendar row (same hits, 44 cited vs 19)
+- evidence: sweep on the first 10 dev runs, 8 rotation tasks, hit counts only: token row 8/19, blocking rows 11/19, both 19/19 with 0 extras; solver 19/19 cited 19; eval_wave4 rotation 8/8 and containment 22/22 still correct

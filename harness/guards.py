@@ -112,23 +112,23 @@ def _col(row: dict, names: tuple[str, ...]) -> str:
     return ""
 
 
-def schedule_rotation(f, token: str) -> tuple[str | None, list[str]]:
-    """Earliest allowed rotation start for `token` (runbook: one hour, on a full hour, from the next full hour after
-    now, clear of the active freezes and jobs that bind it, plus the standing order's buffer), or None + why."""
+def _rotation_windows(f, token: str):
+    """(now, [(lo, hi, calendar path, row)], problems) for `token`'s binding freezes and jobs, buffer included; or
+    (None, None, why) when a precondition is missing."""
     problems: list[str] = []
     st, now = f.settings(), f.now()
     if not _ok(now):
-        return None, ["current time unknown"]
+        return None, None, ["current time unknown"]
     s = st.value
     if s is None or s.buffer_min is None or s.consumer_freezes_bind is None:
-        return None, [f"standing order settings unknown ({'; '.join(getattr(st, 'problems', []))})"]
+        return None, None, [f"standing order settings unknown ({'; '.join(getattr(st, 'problems', []))})"]
     tok_path = f.find_csv([("owner",), ("consumer", "used_by", "used by")])
     cal_path = f.find_csv([("kind",), ("zone", "tz"), ("start", "begin", "from")])
     if not tok_path or not cal_path:
-        return None, ["token inventory or change calendar not found"]
+        return None, None, ["token inventory or change calendar not found"]
     row = next((r for r in f.csv_rows(tok_path) if token in [str(v).strip() for v in r.values()]), None)
     if row is None:
-        return None, [f"{token} not in the token inventory"]
+        return None, None, [f"{token} not in the token inventory"]
     binding = {_col(row, SYSTEM_COLS).lower()}
     if s.consumer_freezes_bind:
         binding |= {c.strip().lower() for c in re.split(r"[;,|]", _col(row, CONSUMER_COLS)) if c.strip()}
@@ -142,16 +142,35 @@ def schedule_rotation(f, token: str) -> tuple[str | None, list[str]]:
         tz = _col(r, TZ_COLS)
         a, b = _utc(_col(r, START_COLS), tz), _utc(_col(r, END_COLS), tz)
         if a and b:
-            windows.append((a - buf, b + buf))
+            windows.append((a - buf, b + buf, cal_path, r))
         else:
             problems.append(f"calendar row not readable: {r}")
-    n = _utc(now.value)
+    return _utc(now.value), windows, problems
+
+
+def schedule_rotation(f, token: str) -> tuple[str | None, list[str]]:
+    """Earliest allowed rotation start for `token` (runbook: one hour, on a full hour, from the next full hour after
+    now, clear of the active freezes and jobs that bind it, plus the standing order's buffer), or None + why."""
+    n, windows, problems = _rotation_windows(f, token)
+    if windows is None:
+        return None, problems
     t = n.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
     for _ in range(24 * 14):
-        if all(not (t < hi and lo < t + timedelta(hours=1)) for lo, hi in windows):
+        if all(not (t < hi and lo < t + timedelta(hours=1)) for lo, hi, _p, _r in windows):
             return t.strftime("%Y-%m-%dT%H:%M:%SZ"), problems
         t += timedelta(hours=1)
     return None, problems + ["no free hour within 14 days"]
+
+
+def rotation_blockers(f, token: str, at: str) -> list[tuple[str, dict]]:
+    """The calendar rows (path, row) whose window overlapped the hours skipped before the slot `at`: the evidence
+    for why rotation could not start earlier."""
+    n, windows, _ = _rotation_windows(f, token)
+    t_at = _utc(at)
+    if not windows or n is None or t_at is None:
+        return []
+    t0 = n.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
+    return [(p, r) for lo, hi, p, r in windows if lo < t_at and t0 < hi]
 
 
 def is_critical(row: dict) -> bool:

@@ -189,6 +189,13 @@ def rotation(f, request: str, allow: list[str]) -> Result:
     if at is None:
         return r.fail("; ".join(why))
     r.answer = at
+    # citations (dev sweep: 19/19 hits, no extras): the token's inventory row and the calendar rows that pushed
+    # the slot later; the standing order, runbook and current time are not expected
+    tok_path = f.find_csv([("owner",), ("consumer", "used_by", "used by")])
+    cands = [f.v.find({"path": tok_path, "record": tok})]
+    cands += [f.v.find({"path": p, "record": str(next(iter(row.values()), "")).strip()})
+              for p, row in guards.rotation_blockers(f, tok, at)]
+    r.units = [u for u in cands if u is not None]
     if "containment:rotate_token" in allow:
         r.actions = [{"tool": "containment", "args": {"ops": [{"op": "rotate_token", "token": tok, "at": at}]}}]
     r.confident = not why
