@@ -227,3 +227,9 @@ Format example (ignored: it sits in a code block). Write your entries below it, 
 - change: partner_draft cites every counting transfer plus the internal-notes lines that state a fact the draft repeats (record count, a destination domain, the hh:mm time, patient zero's agent), no longer the notes file or patient zero's events; first_token adds the owner's roster row and contact row to the read event and inventory row
 - rejected: patient-zero events, standing order, incident-id lines, whole notes file (0 hits each); all notes lines (same hits, 4x the citations); registry record of the owner (0 hits)
 - evidence: chosen on dev runs 1–10, validated on 11–39 (hit counts only). partner_draft: 178/178 on 11–39 (old 27/178), 232/232 on all 39 with extras within the free 2; first_token: 88/88 on 11–39 with 0 extras, 120/120 on all 39; rotation (6c35f84) 114/114 on 11–39
+
+## 16:35 · Held-out check of the citation work, then one live dev run
+- decided_by: human       # the human asked for a live dev run after the citation work (overrides CLAUDE.md's "live arena only for harvests/calibration", as at 16:10)
+- why: measure both sessions' citation commits (f2239cf, 6c35f84, 6b09b7d, 53b67c7, 0f6edb2) on the held-out runs, then confirm on the real grader
+- change: none (measurement only)
+- evidence: held-out rp001–rp005 at 6b09b7d (--only-runs 5 on :3997, only aggregates read): A 0.941/0.985/0.964/0.978/0.964, cost $0.0505/$0.0201/$0.0252/$0.0224/$0.0284, mean A 0.966, mean Score 0.965 at $0.029 (was 0.929 at $0.029 at 128514e); 240/240 submitted
