@@ -233,3 +233,4 @@ Format example (ignored: it sits in a code block). Write your entries below it, 
 - why: measure both sessions' citation commits (f2239cf, 6c35f84, 6b09b7d, 53b67c7, 0f6edb2) on the held-out runs, then confirm on the real grader
 - change: none (measurement only)
 - evidence: held-out rp001–rp005 at 6b09b7d (--only-runs 5 on :3997, only aggregates read): A 0.941/0.985/0.964/0.978/0.964, cost $0.0505/$0.0201/$0.0252/$0.0224/$0.0284, mean A 0.966, mean Score 0.965 at $0.029 (was 0.929 at $0.029 at 128514e); 240/240 submitted
+- evidence (live): run_K7kqkshU13Ff (live dev, code 2b31c3f): 48/48 submitted, accuracy 0.996, cost_score 1, final_score 0.996, local spend $0.018 (previous live run_QVhW_pCITnL1 at 08cd2ab: 0.949)
