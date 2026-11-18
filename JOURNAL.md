@@ -193,3 +193,9 @@ Format example (ignored: it sits in a code block). Write your entries below it, 
 - change: main.py default --harness lab; README result table; fresh runs move an earlier same-id run directory aside (report.py read a kit-baseline run's spend); zoneinfo fallback for slim images
 - rejected: reading held-out traces to explain the lowest run (would end the hold-out)
 - evidence: held-out rp001–rp005 on --only-runs 5: A 0.907/0.948/0.912/0.943/0.935, cost $0.050/$0.020/$0.026/$0.021/$0.028, mean Score 0.929 at $0.029 (dev seeds 0.929 at $0.023; kit baseline 0.152; AIT 0.750)
+
+## 16:10 · Live arena check: one post-event dev run
+- decided_by: human       # the human asked to try the real arena after the build; final window confirmed closed
+- why: confirm the replay grader against the real one for the finished harness (grader calibration)
+- change: none (measurement only); final submission impossible: /me reports final_window closed 2026-11-14 16:45 UTC, final_run_used false
+- evidence: run_QVhW_pCITnL1 (live dev, seed 2094029971, code 08cd2ab): 48/48 submitted, accuracy 0.949, cost_score 1, final_score 0.949, local spend $0.026 (replay held-out mean 0.929 at $0.029)
