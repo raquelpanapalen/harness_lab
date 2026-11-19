@@ -234,3 +234,10 @@ Format example (ignored: it sits in a code block). Write your entries below it, 
 - change: none (measurement only)
 - evidence: held-out rp001–rp005 at 6b09b7d (--only-runs 5 on :3997, only aggregates read): A 0.941/0.985/0.964/0.978/0.964, cost $0.0505/$0.0201/$0.0252/$0.0224/$0.0284, mean A 0.966, mean Score 0.965 at $0.029 (was 0.929 at $0.029 at 128514e); 240/240 submitted
 - evidence (live): run_K7kqkshU13Ff (live dev, code 2b31c3f): 48/48 submitted, accuracy 0.996, cost_score 1, final_score 0.996, local spend $0.018 (previous live run_QVhW_pCITnL1 at 08cd2ab: 0.949)
+
+## 18:25 · Reskinned held-out runs into a second theme (port) to measure overfitting
+- decided_by: both        # the human asked for data unlike the harvests after an organiser said the final keeps the task types under a new theme; the reskin design is the AI's
+- why: all 44 harvested runs are theme `hub` (MuggingFace); the final reuses the task types under a different theme "to punish overfitting", so the 0.965 held-out Score says nothing about a new vocabulary
+- change: harvester/synth/ rewrites harvested runs with a theme map (themes/port.json: Seamark Logistics vs. Blackreef's Kraken-9) across text, JSON, office XML, PDF text (ToUnicode re-encoding) and images (fixed-model transcript, rewritten, redrawn; open tickets use the known request), plus paths, requests, expected answers/sources, intel and recorded tools; line numbers kept, token fingerprints recomputed; check.py verifies; measure.sh runs the harness on the result
+- rejected: a new scenario generator (can't match theirs, guesses the final), renaming directories (organisers say the layout is kept), leaving images unchanged (tickets and standing orders carry theme ids)
+- evidence: pending (port held-out runs vs. hub held-out 0.965 at $0.029, same code)
