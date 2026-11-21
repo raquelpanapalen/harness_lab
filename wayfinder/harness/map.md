@@ -60,7 +60,8 @@ The destination is reached: [SPEC.md](SPEC.md) consolidates every decision. Left
 - Prompt wording per stage: settled by measuring Score on development runs.
 
 The hand-off is done: the spec is sliced into 15 build tickets, [build/README.md](build/README.md) (01–03 and 05 done
-as of 2026-11-17). Ticket 16 (added 2026-11-21) wraps up: code cleanup, repo structure, docs, presentation, article.
+as of 2026-11-17). Ticket 16 (added 2026-11-21) wraps up: code cleanup, repo structure, docs, presentation, article. Final state: held-out
+Score 0.965 at $0.029 (`docs/results.md`); the repo's front door is the README, the long-form docs are in `docs/`.
 
 ## Out of scope
 

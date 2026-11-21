@@ -8,6 +8,10 @@ their evidence are in `wayfinder/harness/SPEC.md` and in the tickets next to it.
 **Score of 0.965**. On the one live post-event dev run (`run_K7kqkshU13Ff`) it submitted 48/48 tasks with accuracy
 0.996 and cost score 1, for a final score of **0.996**. The kit baseline scored 0.152 (A 0.262 at $0.68 per run).
 
+Related: what the tasks are ([`tasks.md`](tasks.md)), which model does what and what it costs
+([`model-roles.md`](model-roles.md)), all measurements ([`results.md`](results.md)), how robust it is to a new theme
+([`reports/v1.md`](reports/v1.md)).
+
 ## Design in one paragraph
 
 Most of the work is **deterministic code**. The small model (Gemma 4 31B) and Jev are used only where code can't
