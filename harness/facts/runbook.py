@@ -26,7 +26,7 @@ from typing import Any
 
 from ..index import TaskView, Unit, ext
 from ..localtools import LocalTools
-from .judge import Judge
+from .instruction_judge import Judge
 
 TRANSFER_ACTIONS = ("send_email", "http_post")
 PROCESS_ACTIONS = ("read_artifact", "resume_task")

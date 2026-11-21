@@ -23,7 +23,7 @@ from harness import vision as V  # noqa: E402
 from harness.index import Index  # noqa: E402
 from harness.machine import HANDLERS, Ctx, Deadlines, run_task  # noqa: E402
 from harness.state import State, TaskRecord  # noqa: E402
-from harness.tools import Tools  # noqa: E402
+from harness.tool_router import Tools  # noqa: E402
 
 TRANSCRIPTS = {
     "/tickets/IR-1.jpg": "Incident response ticket IR-1\nCLOSED\nList the tokens.\nMARKS: stamp CLOSED (red), signature",

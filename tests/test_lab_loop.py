@@ -21,7 +21,7 @@ from harness import normalise as N  # noqa: E402
 from harness.index import Index  # noqa: E402
 from harness.machine import HANDLERS, Ctx, Deadlines, run_task  # noqa: E402
 from harness.state import State, TaskRecord  # noqa: E402
-from harness.tools import Tools  # noqa: E402
+from harness.tool_router import Tools  # noqa: E402
 
 AUDIT = "\n".join(json.dumps(e) for e in [
     {"ts": "2026-11-14T01:00:00Z", "agent": "devops-07", "action": "read_artifact", "target": "issues/entry",

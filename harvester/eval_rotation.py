@@ -23,8 +23,8 @@ from arena import llm  # noqa: E402
 from eval_intake import load_tasks  # noqa: E402
 from harness import guards as G  # noqa: E402
 from harness import vision as V  # noqa: E402
-from harness.facts.judge import Judge  # noqa: E402
-from harness.facts.world import facts_for  # noqa: E402
+from harness.facts.instruction_judge import Judge  # noqa: E402
+from harness.facts.runbook import facts_for  # noqa: E402
 from harness.index import Index  # noqa: E402
 
 DATA = ROOT / "harvester" / "data"

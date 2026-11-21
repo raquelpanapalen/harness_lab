@@ -1,5 +1,5 @@
 """Offline checks of inbox routing (ticket 12) and wave-4 helpers (ticket 13) on a fake facts layer:
-python tests/test_lab_wave4.py. Accuracy on the development runs is measured by harvester/eval_wave4.py."""
+python tests/test_lab_response.py. Accuracy on the development runs is measured by harvester/eval_wave4.py."""
 from __future__ import annotations
 
 import sys
@@ -9,8 +9,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from test_lab_guards import F, FakeFacts  # noqa: E402,I001
-from harness import inbox as IB  # noqa: E402
-from harness import wave4 as W  # noqa: E402
+from harness.solvers import inbox as IB  # noqa: E402
+from harness.solvers import response as W  # noqa: E402
 
 
 class Facts(FakeFacts):

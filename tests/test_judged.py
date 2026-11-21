@@ -1,7 +1,7 @@
 """Offline tests of wave-5 pieces (build ticket 14): board prefilter and split posts, MCP policy parsing and
 descriptions, status-claim templates, DPA clause reading, and the tag-character / plain-hex decoders. No model calls.
 
-    uv run tests/test_wave5.py
+    uv run tests/test_judged.py
 """
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from harness.facts.decode import reveal  # noqa: E402
 from harness.solvers import Precondition  # noqa: E402
-from harness.solvers.wave5 import (_claims, _descriptions, _notify_clause, candidates, check_claim,  # noqa: E402
+from harness.solvers.judged import (_claims, _descriptions, _notify_clause, candidates, check_claim,  # noqa: E402
                                    parse_mcp_policy)
 
 

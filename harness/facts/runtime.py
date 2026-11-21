@@ -17,8 +17,8 @@ from typing import Any
 
 from .. import vision
 from .decode import pdf_page_image
-from .judge import Judge
-from .world import Facts, facts_for
+from .instruction_judge import Judge
+from .runbook import Facts, facts_for
 
 _lock = threading.Lock()
 

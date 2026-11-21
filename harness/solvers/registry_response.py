@@ -1,5 +1,5 @@
-"""Solver wave 4 and inbox routing (build tickets 13 and 12): registry entries for the families computed in
-harness/wave4.py and harness/inbox.py. Each family is enabled per the development measurement
+"""Registry entries for the incident-response and inbox solvers (built as wave 4 and inbox routing, tickets 13 and
+12); the families themselves are computed in harness/solvers/response.py and harness/solvers/inbox.py. Each family is enabled per the development measurement
 (harvester/eval_wave4.py; ticket records 12 and 13). Each asks the facts layer only for what it needs: the standing
 order ("settings") and/or the artifact transcripts behind attack-trace facts ("artifacts").
 """
@@ -8,8 +8,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from .. import inbox as IB
-from .. import wave4 as W
+from . import inbox as IB
+from . import response as W
 from . import Solution, note, register
 
 SETTINGS, ARTIFACTS, BOTH = ("settings",), ("artifacts",), ("artifacts", "settings")

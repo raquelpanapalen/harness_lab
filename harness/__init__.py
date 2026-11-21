@@ -14,7 +14,7 @@ from arena import llm
 from arena.client import ArenaClient, Run, Task
 
 from .index import Index
-from .tools import Tools
+from .tool_router import Tools
 from .machine import HANDLERS, Ctx, Deadlines, Handler, run_task
 from .pacing import Budget, Pacer
 from .state import State, TaskRecord

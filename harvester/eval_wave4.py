@@ -1,4 +1,4 @@
-"""Measure solver wave 4 (harness/wave4.py, build ticket 13) against the development runs' expected answers.
+"""Measure solver wave 4 (harness/solvers/response.py, build ticket 13) against the development runs' expected answers.
 Evaluation only (reads harvester/data; the 5 most recent runs are held out).
 
     uv run harvester/eval_wave4.py [--runs N] [--family exfiltration]
@@ -28,7 +28,7 @@ from arena import llm  # noqa: E402
 from check_facts import Transcriber, transcripts  # noqa: E402
 from check_index import build, dev_runs  # noqa: E402
 from eval_intake import label, load_tasks  # noqa: E402
-from harness import wave4 as W  # noqa: E402
+from harness.solvers import response as W  # noqa: E402
 from harness.facts import Judge, facts_for  # noqa: E402
 from harness.normalise import answer as normalise  # noqa: E402
 
@@ -54,7 +54,7 @@ def run_family(fam: str, f, request: str, view=None, tr=None):
     if fam == "partner_draft":
         return W.partner_draft(f, request, ["write"])
     if fam == "inbox":
-        from harness import inbox
+        from harness.solvers import inbox
         p = next(p for p in view.paths() if p.startswith("/inbox/"))
         text = "\n".join(view.index.docs[view.files[p]].lines or [])
         return inbox.route(f, request, text, None, inbox.ALL)
@@ -171,7 +171,7 @@ def main() -> int:
                     for k, s in stats.items())
         progress(f"[{i}/{len(runs)}] {rdir.name}: done in {time.time() - t0:.0f}s, {n} tasks, {conf} confident, "
                  f"correct {ok / max(1, n):.3f}, confident wrong {wrong}, spend ${tracker.total:.4f}")
-        from harness.facts import world as _w  # the facts cache holds every run's index: free it per run
+        from harness.facts import runbook as _w  # the facts cache holds every run's index: free it per run
         _w._CACHE.clear()
         del idx
         import gc

@@ -1,4 +1,5 @@
-"""Wave 2 (build ticket 11): leaked tokens, access-log policy, access review, delegation chain, lethal trifecta.
+"""Access and credential solvers: leaked tokens, access-log policy, access review, delegation chain, lethal trifecta
+(built as wave 2, ticket 11).
 
 Every rule comes from the task's own workspace: the fingerprint matching rule (sha256_12 of the full value), the
 access-log POLICY.md clauses (parsed clause by clause; an unrecognised clause sends the task to the loop), the access
@@ -13,7 +14,7 @@ import re
 from typing import Any
 
 from ..facts.decode import reveal
-from ..facts.world import Facts, parse_local
+from ..facts.runbook import Facts, parse_local
 from ..index import Unit
 from ..state import TaskRecord
 from . import Precondition, Solution, note, register

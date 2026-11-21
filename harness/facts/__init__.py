@@ -5,8 +5,8 @@
     f.compromised().value, f.patient_zero().value, f.exfil(parse_standing_order(transcript)).value
 """
 from .decode import decode_runs, fold, reveal
-from .judge import Judge, Verdict
-from .world import Fact, Facts, Settings, domain_of, expand, facts_for, parse_local, parse_standing_order
+from .instruction_judge import Judge, Verdict
+from .runbook import Fact, Facts, Settings, domain_of, expand, facts_for, parse_local, parse_standing_order
 
 __all__ = ["Fact", "Facts", "Judge", "Settings", "Verdict", "decode_runs", "domain_of", "expand", "facts_for", "fold",
            "parse_local", "parse_standing_order", "reveal"]

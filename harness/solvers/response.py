@@ -1,4 +1,4 @@
-"""Solver wave 4 (build ticket 13): exfiltration, canaries, breach notification, containment, rotation, first token
+"""Incident-response solvers (built as wave 4, ticket 13): exfiltration, canaries, breach notification, containment, rotation, first token
 read, token status and board-message origin, computed in code over the facts layer (harness/facts, ticket 09).
 
 Each function takes the task's Facts and request text and returns a `Result`: the answer, the evidence units it rests
@@ -14,8 +14,8 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Any
 
-from . import guards
-from .normalise import template_keys
+from .. import guards
+from ..normalise import template_keys
 
 TOKEN_ID = re.compile(r"\bTOK-[A-Z0-9]+-\d+\b")
 AGENT_ID = re.compile(r"\b[a-z][a-z-]*-\d{2,3}\b")
@@ -124,7 +124,7 @@ def exfiltration(f, request: str) -> Result:
     elif {"team", "records"} <= keys or "team" in keys:
         roster = f.roster().value or {}
         per: dict[str, list[str]] = defaultdict(list)
-        from .facts.world import expand
+        from ..facts.runbook import expand
         for t in counting:
             team = _roster_col(roster.get(t["agent"], {}), "team", "squad", "group")
             per[team] += expand(t["range"])
@@ -178,7 +178,7 @@ def canaries(f, request: str) -> Result:
     r.answer = hit
     r.units = [u for c in hit if (u := f.v.find({"path": p, "record": c}))]
     # plus the counting transfer(s) that carried each hit canary (dev: 30/46 → 46/46 citations)
-    from .facts.world import expand
+    from ..facts.runbook import expand
     hs = set(hit)
     r.units += [t["unit"] for t in _counting(f, ex) if t["unit"] and hs & set(expand(t["range"]))]
     return _done(r, st, ex)
@@ -420,7 +420,7 @@ def attacker_domains(f, request: str, read_image) -> Result:
     if re.search(r"\bnone of our agents\b|\bno agent of ours\b|never (?:contact|sent|reach)|not contacted|"
                  r"no request at all", request, re.I):
         # the destinations nobody contacted: no gateway event (any action, any status) targets them
-        from .facts.world import domain_of
+        from ..facts.runbook import domain_of
         contacted = {domain_of(str(e.get("target", ""))) for e in f.events()}
         r.answer = sorted(d for d in shown if d not in contacted)
         r.units = [u for p in images for u in f.v.units(p)[:1]]

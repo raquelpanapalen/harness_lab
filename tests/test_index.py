@@ -15,7 +15,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from harness.index import Index  # noqa: E402
-from harness.tools import Tools  # noqa: E402
+from harness.tool_router import Tools  # noqa: E402
 
 
 def sha(b: bytes) -> str:

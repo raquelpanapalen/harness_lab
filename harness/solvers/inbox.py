@@ -18,9 +18,9 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from . import guards
-from .vision import body as _strip_marks  # noqa: F401  (kept for symmetry with transcribed messages)
-from .wave4 import AGENT_ID, DOMAIN, Result, _exfil, resolve_agent
+from .. import guards
+from ..vision import body as _strip_marks  # noqa: F401  (kept for symmetry with transcribed messages)
+from .response import AGENT_ID, DOMAIN, Result, _exfil, resolve_agent
 
 ADDRESS = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
 

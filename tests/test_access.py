@@ -1,7 +1,7 @@
 """Offline tests of wave-2 solver pieces (build ticket 11): access-log policy parsing, validity windows, shortest
 delegation chain. No model calls, no workspace.
 
-    uv run tests/test_wave2.py
+    uv run tests/test_access.py
 """
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from harness.solvers import Precondition  # noqa: E402
-from harness.solvers.wave2 import _valid, parse_access_policy, shortest_chain  # noqa: E402
+from harness.solvers.access import _valid, parse_access_policy, shortest_chain  # noqa: E402
 
 POLICY = """# Access-log policy
 A request is a violation only when ALL the following conditions hold:

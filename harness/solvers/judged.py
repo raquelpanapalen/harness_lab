@@ -1,4 +1,5 @@
-"""Wave 5 (build ticket 14): model-heavy families with code around the one judgment they need.
+"""Judged solvers: board injections, MCP audit, status claims, DPA deadline (built as wave 5, ticket 14): code around
+the one bounded model judgment each family needs.
 
 board_injected: the runbook's "injected board post" is the fact layer's instruction judgment applied to posts. Code
 does the rest: routine posts repeat with only their numbers changed, so a post whose digit-normalised text occurs
@@ -11,7 +12,7 @@ import json
 import re
 from typing import Any
 
-from ..facts.world import Facts
+from ..facts.runbook import Facts
 from ..index import Unit
 from ..state import TaskRecord
 from . import Precondition, Solution, note, register
@@ -313,12 +314,12 @@ def check_claim(claim: str, me: str, evs: list[dict], records_of) -> tuple[bool,
 
 
 def _domain(target) -> str:
-    from ..facts.world import domain_of
+    from ..facts.runbook import domain_of
     return domain_of(str(target or ""))
 
 
 def _within(d: str, parent: str) -> bool:
-    from ..facts.world import within
+    from ..facts.runbook import within
     return bool(d) and within(d, parent.lower())
 
 
@@ -347,7 +348,7 @@ def status_claims(ctx: Any, rec: TaskRecord, facts) -> Solution:
     by_rq = {t["rq"]: t for t in (f.transfers().value or []) if t.get("rq")}
 
     def records_of(e):
-        from ..facts.world import expand
+        from ..facts.runbook import expand
         if e.get("records"):
             rs = e["records"] if isinstance(e["records"], list) else [e["records"]]
             return sum(len(expand(str(r))) for r in rs)

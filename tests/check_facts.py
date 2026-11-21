@@ -38,7 +38,7 @@ from arena import llm  # noqa: E402
 from check_index import build, dev_runs  # noqa: E402
 from harness.facts import Judge, facts_for
 from harness.facts.decode import pdf_page_image
-from harness.facts import world as facts_world  # noqa: E402
+from harness.facts import runbook as facts_world  # noqa: E402
 
 FAMILIES = {
     "compromised": re.compile(r"compromised in incident", re.I),

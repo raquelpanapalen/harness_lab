@@ -86,7 +86,7 @@ All three are called through `arena/llm.py` against `OPENROUTER_BASE_URL`, and e
   2. **Phase 2:** the tasks parked at `LOOP` run their notebook loops.
 - The run clock starts at the first start and is stored in `state/_run.json`, so deadlines survive a restart too.
 
-### 1. SETUP: the workspace index (`harness/index.py`, `localtools.py`, `tools.py`)
+### 1. SETUP: the workspace index (`harness/index.py`, `localtools.py`, `tool_router.py`)
 
 The index runs once per run, before any task starts.
 
@@ -146,9 +146,9 @@ Intake works out what is being asked, which family it belongs to, and what the t
    `action:<op>`, else `answer`). The **allowlist** of state-changing operations follows the grader's mapping
    (`intake.AUTHORISED`). It is **empty unless intake is confident**, and every later stage can only narrow it.
 
-### 3. SOLVE: family solvers over the fact layer (`harness/solvers/`, `harness/facts/`, `harness/wave4.py`, `harness/inbox.py`)
+### 3. SOLVE: family solvers over the fact layer (`harness/solvers/`, `harness/facts/`)
 
-**The fact layer** (`facts/world.py`) computes runbook concepts in code, once per distinct version of the files they
+**The fact layer** (`facts/runbook.py`) computes runbook concepts in code, once per distinct version of the files they
 depend on. The cache key is the blob hashes of logs, roster, registry, changes and the egress register, so tasks that
 share a log version share the work. The concepts:
 
@@ -161,7 +161,7 @@ share a log version share the work. The concepts:
 Each result is a `Fact(value, evidence, ok, problems)`. `ok` means every precondition held and nothing was ambiguous.
 Files and columns are found by header and content matching, never by fixed positions or dev values.
 
-**"Is this an instruction to agents?"** (`facts/judge.py`, `facts/decode.py`) drives every attack-trace fact. It works
+**"Is this an instruction to agents?"** (`facts/instruction_judge.py`, `facts/decode.py`) drives every attack-trace fact. It works
 in three steps:
 
 1. **Decode first:** remove zero-width characters, decode Unicode tag characters, fold homoglyphs, decode `%`-escapes
@@ -173,12 +173,12 @@ in three steps:
 
 **Solvers.** There are 23 registered families, all enabled, because each one beat the loop on the dev runs by Score:
 
-| Wave | Families |
+| Module (`harness/solvers/`) | Families |
 |---|---|
-| 1 (`core.py`) | compromised, patient_zero, timeline |
-| 2 (`wave2.py`) | leaked_tokens, access_log, access_review, delegation_chain, lethal_trifecta |
-| 4 (`wave4.py`, `harness/wave4.py`, `harness/inbox.py`) | exfiltration, canaries, breach_notification, containment, rotation, first_token, token_status, board_origin, attacker_domains, partner_draft, inbox |
-| 5 (`wave5.py`) | board_injected, mcp_audit, status_claims, dpa_deadline. These are model-heavy, with code around one bounded judgment each |
+| `incident.py` | compromised, patient_zero, timeline |
+| `access.py` | leaked_tokens, access_log, access_review, delegation_chain, lethal_trifecta |
+| `response.py` (logic) + `registry_response.py` (registry entries), `inbox.py` | exfiltration, canaries, breach_notification, containment, rotation, first_token, token_status, board_origin, attacker_domains, partner_draft, inbox |
+| `judged.py` | board_injected, mcp_audit, status_claims, dpa_deadline. These are model-heavy, with code around one bounded judgment each |
 
 Examples of what the code does:
 
@@ -348,7 +348,7 @@ Every model call and Task API call goes through the `Pacer`:
 - **Offline replay:** `uv run harvester/replay/server.py` on port 3998, then `ARENA_BASE_URL=http://localhost:3998`.
   Report scores only on held-out runs (`--only-runs 5`).
 - **Unit and offline tests:** `tests/test_lab_*.py` (machine, intake, loop, guards, pacing, vision, wave4),
-  `tests/test_solvers.py`, `test_wave2.py`, `test_wave5.py`, `test_index.py`, `test_facts.py`, `test_offline.py`.
+  `tests/test_solvers.py`, `test_access.py`, `test_judged.py`, `test_lab_response.py`, `test_index.py`, `test_facts.py`, `test_offline.py`.
 - **Per-family evaluators:** `harvester/eval_intake.py`, `eval_wave4.py`, `eval_rotation.py`, `eval_vision.py`, and
   `tests/check_solvers.py`, which runs the solvers plus `guards.check` against the dev runs.
 - **Score:** `uv run harvester/report.py` prints A, cost, C and `Score = A · (0.5 + 0.5 · C)`.

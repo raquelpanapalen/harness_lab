@@ -90,7 +90,7 @@ def rewrite_value(v: Any, safe: set[str], rules: str) -> Any:
 
 # --- rotation scheduler ------------------------------------------------------------------------------------------------
 def _utc(ts: str | None, tz: str | None = None) -> datetime | None:
-    from .facts.world import parse_local
+    from .facts.runbook import parse_local
     s = parse_local(ts or "", tz)
     return datetime.strptime(s, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc) if s else None
 

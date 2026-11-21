@@ -28,7 +28,7 @@ sys.path.insert(0, str(ROOT / "harvester"))
 from arena import llm  # noqa: E402
 from check_index import DATA, build, dev_runs  # noqa: E402
 from harness import solvers  # noqa: E402
-from harness.facts import world as facts_world  # noqa: E402
+from harness.facts import runbook as facts_world  # noqa: E402
 from harness.state import TaskRecord, answer_shape  # noqa: E402
 from replay import tools as T  # noqa: E402
 from replay.grade import grade  # noqa: E402

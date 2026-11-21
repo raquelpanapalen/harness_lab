@@ -1,4 +1,5 @@
-"""Wave 1 (build ticket 10): compromised agents, patient zero, timeline. Thin queries on the fact layer.
+"""Incident solvers: compromised agents, patient zero, timeline (built as wave 1, ticket 10). Thin queries on the
+fact layer.
 
 Each solver checks its own preconditions (answer shape, keys the request asks for, facts ok) and is confident only
 when all hold; otherwise it returns its partial facts as loop notes.
@@ -11,7 +12,7 @@ from typing import Any
 
 from arena import llm
 
-from ..facts.world import Fact, Facts, Settings, parse_local
+from ..facts.runbook import Fact, Facts, Settings, parse_local
 from ..state import TaskRecord
 from . import Precondition, Solution, note, register
 
