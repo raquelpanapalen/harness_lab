@@ -45,6 +45,13 @@ def fingerprint_hits(blobs: Path, files: dict[str, str]) -> int:
     return n
 
 
+def hash_hits(blobs: Path, files: dict[str, str]) -> int:
+    """64-hex hashes in the task's text files that name a file of the task (e.g. MCP approved hashes)."""
+    shas = set(files.values())
+    return sum(h in shas for p, s in files.items() if p.endswith(TEXT)
+               for h in re.findall(r"\b[0-9a-f]{64}\b", (blobs / s).read_text(errors="ignore")))
+
+
 def main() -> int:
     theme = load_theme(sys.argv[1] if len(sys.argv) > 1 else "port")
     out = DATA / "synth" / theme["name"]
@@ -57,7 +64,7 @@ def main() -> int:
         rev = json.loads((rdir / "revealed.json").read_text())
         report = json.loads((out / "reports" / f"{src.name}.json").read_text())
         known = set(report["leftovers"])
-        lines = sources = fps = left = 0
+        lines = sources = fps = left = hashes = 0
         newfiles = {t["task_id"]: t["files"] for t in new["tasks"]}
         for to in old["tasks"]:
             tn = newfiles[to["task_id"]]
@@ -77,6 +84,8 @@ def main() -> int:
             by_old = {p: tn[r.text(p)] for p in to["files"] if r.text(p) in tn}  # files under their hub names
             if fingerprint_hits(DATA / "blobs", to["files"]) != fingerprint_hits(out / "blobs", by_old):
                 fps += 1
+            if hash_hits(DATA / "blobs", to["files"]) != hash_hits(out / "blobs", tn):
+                hashes += 1
         for t in rev["tasks"]:
             f = newfiles[t["task_id"]]
             for c in t.get("expected_sources") or []:
@@ -87,10 +96,10 @@ def main() -> int:
                     sources += 1
             if r.leftovers(json.dumps(t.get("expected_answer"), ensure_ascii=False)) or r.leftovers(t.get("request") or ""):
                 left += 1
-        bad = lines + sources + fps + left
+        bad = lines + sources + fps + left + hashes
         problems += bad
         print(f"{rdir.name}: line-count changes {lines}, broken sources {sources}, fingerprint mismatches {fps}, "
-              f"unexpected leftovers {left}, known leftover files {len(known)} -> {'OK' if not bad else 'FAIL'}")
+              f"file-hash mismatches {hashes}, unexpected leftovers {left}, known leftover files {len(known)} -> {'OK' if not bad else 'FAIL'}")
     print("ALL OK" if not problems else f"{problems} problems")
     return 1 if problems else 0
 

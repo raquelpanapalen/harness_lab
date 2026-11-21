@@ -221,6 +221,20 @@ class Reskinner:
                 rep["leftovers"][p] = sorted(set(left))[:20]
             new_sha[s] = self.put_blob(new if new is not None else data, None if new is not None else s)
 
+        # Files that record another file's SHA-256 (the MCP approved-hash list: "exactly as served") must name the
+        # rewritten file's hash. Rewritten manifests never hold hashes themselves, so one pass settles it.
+        moved = {o: n for o, n in new_sha.items() if o != n}
+        hex64 = re.compile(r"\b[0-9a-f]{64}\b")
+        rep["hashes_remapped"] = 0
+        for s, p in run.files.items():
+            if ext(p) not in TEXT | JSONISH:
+                continue
+            body = (self.blobs / new_sha[s]).read_bytes().decode("utf-8")
+            hits = [h for h in hex64.findall(body) if h in moved]
+            if hits:
+                rep["hashes_remapped"] += len(hits)
+                new_sha[s] = self.put_blob(hex64.sub(lambda m: moved.get(m.group(0), m.group(0)), body).encode())
+
         self.write_run(run, r, new_sha)
         rep["seconds"] = round(time.time() - t0, 1)
         rep["leftover_files"] = len(rep["leftovers"])
@@ -337,7 +351,7 @@ def main() -> int:
         log(f"[{i}/{len(srcs)}] {run.id} done in {rep['seconds']}s: {rep['blobs']}, leftovers in "
             f"{rep['leftover_files']} files, {sum(1 for v in imgs.values() if v.get('redrawn'))} images redrawn, "
             f"open-ticket transcript match {min(matches, default=1):.2f}..{max(matches, default=1):.2f}, "
-            f"fingerprints remapped {rep['fingerprints']}")
+            f"fingerprints remapped {rep['fingerprints']}, file hashes remapped {rep['hashes_remapped']}")
     if rs.transcripts is not None:
         log(f"transcription: {rs.transcripts.calls} calls")
     log(f"data dir: {out}  (serve with: uv run harvester/replay/server.py --data {out})")
