@@ -7,7 +7,9 @@ the port reskin, at ≈ $0.03 per run; reports per version in `docs/reports/`).
 
 **Blocked by:** 15
 
-**Status:** in progress: sections 1–2 done (2026-11-21, see JOURNAL 19:30); `ruff format` deliberately not applied; sections 3–5 open
+**Status:** done (2026-11-21). `ruff format` deliberately not applied (JOURNAL 19:30). Deliverables: README, `docs/`
+(tasks, architecture, model-roles, findings, results, development, kit-guide, reports/v1), `docs/presentation/index.html`,
+`docs/article.md`.
 
 Spec: [SPEC.md](../SPEC.md)
 
@@ -39,11 +41,11 @@ Spec: [SPEC.md](../SPEC.md)
 
 ## 3. Documentation
 
-- [ ] `README.md` rewritten as the front door: problem in 3 sentences, a short task table (family, input,
+- [x] `README.md` rewritten as the front door: problem in 3 sentences, a short task table (family, input,
   output) linking to `docs/tasks.md`, the solution in one diagram, results table
   (kit baseline → lab harness on dev, held-out hub, held-out port reskin, live dev run), quickstart (replay server +
   one run), repo map, links to the deeper docs
-- [ ] `docs/tasks.md`: the problem itself, before any solution. What a run is (48 tasks, levels 1–3, one shared
+- [x] `docs/tasks.md`: the problem itself, before any solution. What a run is (48 tasks, levels 1–3, one shared
   workspace per run), what the agent receives (the task instruction, the workspace files and their formats: text,
   csv, jsonl audit logs, xlsx/ods, docx/odt, pdf, images/photo tickets, the workspace `/AGENTS.md` and operator rules),
   which tools it may call (read-only vs state-changing), and what it must return (answer shape per instruction,
@@ -52,9 +54,9 @@ Spec: [SPEC.md](../SPEC.md)
   expected output shape with a made-up example (never a real expected answer), the traps (injections, framing,
   refusals) and how the grader scores it. Sources: `docs.md`, tickets 02 and 03, family descriptions in
   `harness/intake.py`
-- [ ] `docs/architecture.md` (from `HARNESS.md` + SPEC): state machine, intake, workspace index, fact layer, family
+- [x] `docs/architecture.md` (from `HARNESS.md` + SPEC): state machine, intake, workspace index, fact layer, family
   solvers, notebook loop, compose, guards, pacing/resilience, vision; one diagram per major flow
-- [ ] `docs/model-roles.md` (or a section of architecture.md): who does what — **code** vs **Jev** vs **Gemma**
+- [x] `docs/model-roles.md` (or a section of architecture.md): who does what — **code** vs **Jev** vs **Gemma**
   (vs embeddings, if used), with concrete examples from the harness. For each: which pipeline steps and task families
   use it, why it was chosen there (cost, reliability, the evidence from tickets 04 and 09), and one worked example
   traced through a real code path (file:function), e.g. code: workspace index, fact layer, a family solver computing
@@ -62,39 +64,39 @@ Spec: [SPEC.md](../SPEC.md)
   judgment; Gemma: the notebook loop for families without a solver, image transcription, compose of free-text drafts.
   A table of family → who answers (code only / Jev + code / Gemma loop) and the share of tasks and of spend each takes
   on a typical run (measured from run traces, not guessed)
-- [ ] `docs/findings.md`: what we learned, each with its evidence (run ids, numbers from JOURNAL and the closed
+- [x] `docs/findings.md`: what we learned, each with its evidence (run ids, numbers from JOURNAL and the closed
   tickets): provider errors cost two thirds of baseline points; ≈ 75 % of tasks computable by code; Jev for cheap
   typed screening; output guards + frame guard beat input filtering; citation work (+0.036 held-out); theme
   robustness (hub 0.965 vs port 0.962 on vocabulary; layout 0.258 on renamed files, docs/reports/v1.md); cost is re-sent context
-- [ ] `docs/results.md`: every milestone measurement in one table with commit, runs, A, cost, C, Score; how Score
+- [x] `docs/results.md`: every milestone measurement in one table with commit, runs, A, cost, C, Score; how Score
   is computed; how held-out discipline was kept
-- [ ] `docs/development.md`: offline replay workflow, held-out rules, tests and checks to run, `harvester/synth`
+- [x] `docs/development.md`: offline replay workflow, held-out rules, tests and checks to run, `harvester/synth`
   reskin, how to add a family solver
-- [ ] `wayfinder/harness/map.md` and `build/README.md` updated (ticket 16 row, final state)
-- [ ] All doc links checked (no dead relative links)
+- [x] `wayfinder/harness/map.md` and `build/README.md` updated (ticket 16 row, final state)
+- [x] All doc links checked (no dead relative links)
 
 ## 4. Presentation (HTML)
 
-- [ ] Built with the `/frontend-slides:frontend-slides` skill, saved in the repo (e.g. `docs/presentation/index.html`,
+- [x] Built with the `/frontend-slides:frontend-slides` skill, saved in the repo (e.g. `docs/presentation/index.html`,
   self-contained, opens offline)
-- [ ] ~12–18 slides: the challenge (Harness Arena, fixed small models, Score formula) → the tasks (kinds of
+- [x] ~12–18 slides: the challenge (Harness Arena, fixed small models, Score formula) → the tasks (kinds of
   tasks, input, expected output, one worked example from `docs/tasks.md`) → baseline failure analysis →
   design principles (code first, model for judgment, always submit, safety in code) → architecture diagram → who does
   what (code vs Jev vs Gemma, with examples and the task/spend split) → family
   solvers + fact layer → injection defence → cost control → offline replay lab + calibrated grader → results
   (baseline 0.152 → held-out 0.965, $0.68 → $0.03/run; leaderboard bars AIT 0.750, Donaufriends 0.524) → theme
   reskin / overfitting → lessons learned → what's next
-- [ ] Numbers on slides match `docs/results.md` exactly; charts drawn from those numbers
+- [x] Numbers on slides match `docs/results.md` exactly; charts drawn from those numbers
 
 ## 5. Technical article
 
-- [ ] `docs/article.md` (≈ 2,000–3,500 words), written for engineers building cheap small-model agents: problem,
+- [x] `docs/article.md` (≈ 2,000–3,500 words), written for engineers building cheap small-model agents: problem,
   the tasks (kinds, inputs, expected outputs, summarised from `docs/tasks.md`),
   approach, architecture, model roles (code vs Jev vs Gemma, with examples), the measurement setup (replay + grader calibration + held-out + reskin), key findings with
   numbers, what didn't work (rejected alternatives from JOURNAL), limitations (theme overfitting, Gemma judgment),
   takeaways
-- [ ] Figures shared with the presentation where possible; every claim backed by a run id or ticket
-- [ ] No team keys, no live attacker URLs (defang), no expected answers or held-out task contents
+- [x] Figures shared with the presentation where possible; every claim backed by a run id or ticket
+- [x] No team keys, no live attacker URLs (defang), no expected answers or held-out task contents
 
 ## Done when
 
@@ -103,4 +105,4 @@ Spec: [SPEC.md](../SPEC.md)
 - [x] One held-out replay run after the restructure reproduces the Score within noise (≈ 0.96, ≈ $0.03), so
   the cleanup changed nothing
 - [x] `docker build` + one-task container test passes
-- [ ] Commits in logical steps (cleanup, moves, docs, presentation, article), JOURNAL entry for the structure decision
+- [x] Commits in logical steps (cleanup, moves, docs, presentation, article), JOURNAL entry for the structure decision
