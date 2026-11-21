@@ -463,7 +463,7 @@ def _rotation_violations(ws: Workspace, kind: str, exp_ans, request: str) -> lis
     if kind == "containment":
         want = {r.get("token"): r.get("at") for r in exp_ans.get("rotate", []) or []}
     elif kind == "rotation":
-        m = re.search(r"\bTOK-[A-Z0-9]+-\d+\b", request or "")
+        m = ws.token_rx.search(request or "")
         if m:
             want = {m.group(0): exp_ans}
     out = []

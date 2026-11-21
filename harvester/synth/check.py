@@ -74,7 +74,8 @@ def main() -> int:
                         lines += 1
                     if p not in known and r.leftovers(b.decode("utf-8", "replace")):
                         left += 1
-            if fingerprint_hits(DATA / "blobs", to["files"]) != fingerprint_hits(out / "blobs", tn):
+            by_old = {p: tn[r.text(p)] for p in to["files"] if r.text(p) in tn}  # files under their hub names
+            if fingerprint_hits(DATA / "blobs", to["files"]) != fingerprint_hits(out / "blobs", by_old):
                 fps += 1
         for t in rev["tasks"]:
             f = newfiles[t["task_id"]]

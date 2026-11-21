@@ -113,8 +113,13 @@ class Workspace:
     """One task's workspace: base files (path -> sha256) from the harvest plus an overlay of changed files."""
 
     def __init__(self, files: dict[str, str], blob_dir: Path, page_counts: dict, intel: dict | None,
-                 recorded_tree: str | None = None):
+                 recorded_tree: str | None = None, canon: dict[str, str] | None = None,
+                 token_prefix: str = "TOK"):
         self.base = dict(files)
+        # Synthetic themes (harvester/synth) may rename files: `canon` maps a path to its hub path, so the platform
+        # emulation below (search order, logs, registry, plans, token inventory) still finds each file by its role.
+        self.canon = canon or {}
+        self.token_rx = re.compile(rf"\b{re.escape(token_prefix)}-[A-Z0-9]+-\d+\b")
         # The real server omits page counts for some PDFs; take them from the recorded `tree` when we have it.
         self.known_pages = parse_tree_pages(recorded_tree) if recorded_tree else {}
         self.blob_dir = blob_dir
@@ -127,6 +132,10 @@ class Workspace:
         self.initial_containment = self._containment()
 
     # --- files ---------------------------------------------------------------------------------------
+    def c(self, path: str) -> str:
+        """The hub path of a file (itself unless a synthetic theme renamed it)."""
+        return self.canon.get(path, path)
+
     def paths(self) -> list[str]:
         return sorted(set(self.base) | set(self.overlay))
 
@@ -259,7 +268,7 @@ class Workspace:
         scope = norm_path(path)
         hits: list[dict] = []
         total, skipped = 0, 0
-        for p in sorted(self.paths(), key=search_rank):
+        for p in sorted(self.paths(), key=lambda q: (search_rank(self.c(q)), q)):
             if not (p == scope or scope == "/" or p.startswith(scope + "/")):
                 continue
             if ext(p) not in TEXT_EXT:
@@ -282,14 +291,14 @@ class Workspace:
     def _events(self) -> list[dict]:
         ev = []
         for p in self.paths():
-            if p.startswith("/logs/audit/") and ext(p) == "jsonl":
+            if self.c(p).startswith("/logs/audit/") and ext(p) == "jsonl":
                 for i, line in enumerate(self.text(p).splitlines(), 1):
                     try:
                         e = json.loads(line)
                     except ValueError:
                         continue
                     ev.append({"file": p, "line": i, **e, "ts": e.get("ts"), "_raw": line})
-            elif p.startswith("/logs/archive/") and ext(p) == "csv":
+            elif self.c(p).startswith("/logs/archive/") and ext(p) == "csv":
                 rows = list(csv.reader(io.StringIO(self.text(p))))
                 if not rows:
                     continue
@@ -333,7 +342,7 @@ class Workspace:
 
     def _registry(self) -> dict:
         for p in self.paths():
-            if p.startswith("/fleet/") and "registry" in p and ext(p) == "json":
+            if self.c(p).startswith("/fleet/") and "registry" in self.c(p) and ext(p) == "json":
                 return json.loads(self.text(p))
         raise ToolError("registry export not found")
 
@@ -407,7 +416,7 @@ class Workspace:
 
     # --- containment state ---------------------------------------------------------------------------
     def _find_containment(self) -> str | None:
-        cands = [p for p in self.paths() if ext(p) == "json" and p.startswith("/plans/")]
+        cands = [p for p in self.paths() if ext(p) == "json" and self.c(p).startswith("/plans/")]
         for p in cands:
             try:
                 if "quarantined" in json.loads(self.text(p)):
@@ -489,8 +498,9 @@ class Workspace:
         """Token ids of the fleet (the real server rejects rotating / revoking an unknown token)."""
         out: set[str] = set()
         for p in self.paths():
-            if p.startswith("/fleet/") and p.endswith(".csv") and "token" in p.rsplit("/", 1)[-1]:
-                out |= set(re.findall(r"\bTOK-[A-Z0-9]+-\d+\b", self.text(p)))
+            q = self.c(p)
+            if q.startswith("/fleet/") and q.endswith(".csv") and "token" in q.rsplit("/", 1)[-1]:
+                out |= set(self.token_rx.findall(self.text(p)))
         return out
 
     def send_message(self, to: str = "", subject: str = "", body: str = "") -> dict:
@@ -504,7 +514,7 @@ class Workspace:
         """Every address in contacts.csv, verified or not (send_message's `recipient_known`; GUESS: all rows)."""
         out: set[str] = set()
         for p in self.paths():
-            if p.rsplit("/", 1)[-1].lower() == "contacts.csv":
+            if self.c(p).rsplit("/", 1)[-1].lower() == "contacts.csv":
                 out |= {m.casefold() for m in re.findall(r"[^@\s,;\"]+@[^@\s,;\"]+", self.text(p))}
         return out
 
@@ -525,7 +535,7 @@ class Workspace:
         address column is found by content and the verified column by a name containing 'verif'."""
         out: set[str] = set()
         for p in self.paths():
-            if p.rsplit("/", 1)[-1].lower() != "contacts.csv":
+            if self.c(p).rsplit("/", 1)[-1].lower() != "contacts.csv":
                 continue
             rows = list(csv.DictReader(io.StringIO(self.text(p))))
             vcol = next((k for k in (rows[0] if rows else {}) if k and "verif" in k.lower()), None)

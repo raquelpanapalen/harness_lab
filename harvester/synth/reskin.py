@@ -293,6 +293,10 @@ class Reskinner:
             write(dst / "finish.json", fin)
         if run.intel is not None:
             write(dst / "intel.json", deep(run.intel, tx))
+        # for the replay server: the hub path of every renamed file, and the token-id prefix
+        write(dst / "synth.json", {"theme": name, "source_run": run.id,
+                                   "token_prefix": self.theme.get("token_prefix", "TOK"),
+                                   "canon": {n: o for o, n in paths.items() if n != o}})
         for tid, task in run.tasks.items():
             (dst / "tasks" / tid).mkdir()
             t = deep({k: v for k, v in task.items() if k != "files"}, tx)

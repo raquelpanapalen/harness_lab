@@ -62,7 +62,8 @@ class Store:
         revealed = json.loads((rdir / "revealed.json").read_text())
         manifest = json.loads((rdir / "manifest.json").read_text())
         intel = json.loads((rdir / "intel.json").read_text()) if (rdir / "intel.json").exists() else {}
-        return {"run": run, "revealed": {t["task_id"]: t for t in revealed["tasks"]}, "manifest": manifest,
+        synth = json.loads((rdir / "synth.json").read_text()) if (rdir / "synth.json").exists() else {}
+        return {"run": run, "synth": synth, "revealed": {t["task_id"]: t for t in revealed["tasks"]}, "manifest": manifest,
                 "intel": intel, "dir": rdir}
 
 
@@ -99,7 +100,8 @@ class Replay:
             rec_tree = None
             if tools_rec.exists():
                 rec_tree = (json.loads(tools_rec.read_text()).get("tree") or {}).get("result")
-            ws = T.Workspace(files_by_task[tid], self.store.blobs, self.store.page_counts, d["intel"], rec_tree)
+            ws = T.Workspace(files_by_task[tid], self.store.blobs, self.store.page_counts, d["intel"], rec_tree,
+                             canon=d["synth"].get("canon"), token_prefix=d["synth"].get("token_prefix", "TOK"))
             truth = d["revealed"][tid]
             ws.authorized = AUTHORISED.get(task_kind(truth.get("expected_outcome"), truth.get("expected_answer"),
                                                      truth.get("request") or t.get("instruction", "")), set())

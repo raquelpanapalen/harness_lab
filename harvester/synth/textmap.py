@@ -162,7 +162,14 @@ def _xml_escape(s: str) -> str:
 
 
 def load_theme(name_or_path: str) -> dict:
+    """A theme; `"extends": "<theme>"` starts from another theme's maps and overrides or adds entries."""
     p = Path(name_or_path)
     if not p.exists():
         p = Path(__file__).parent / "themes" / f"{name_or_path}.json"
-    return json.loads(p.read_text())
+    theme = json.loads(p.read_text())
+    if theme.get("extends"):
+        base = load_theme(theme["extends"])
+        for key in ("literals", "agent_prefixes", "org_roots"):
+            theme[key] = {**base.get(key, {}), **theme.get(key, {})}
+        theme.setdefault("token_prefix", base.get("token_prefix", "TOK"))
+    return theme
