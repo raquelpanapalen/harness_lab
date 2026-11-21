@@ -1,5 +1,9 @@
 """Offline checks that need no network: python tests/test_offline.py"""
-import json, os, sys, pathlib, tempfile
+import json
+import os
+import sys
+import pathlib
+import tempfile
 KIT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(KIT))
 sys.path.insert(0, str(KIT / "examples" / "pi"))

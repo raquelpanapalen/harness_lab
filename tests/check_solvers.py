@@ -145,7 +145,7 @@ def main() -> int:
             rec.answer_shape = answer_shape(req)
             if fam == "containment":           # intake's allowlist for a containment task
                 rec.allowlist = ["containment:quarantine_agent", "containment:rotate_token", "containment:block_domain"]
-            state = solvers.run(ctx, rec, enabled={fam})
+            solvers.run(ctx, rec, enabled={fam})
             stats[fam]["n"] += 1
             if rec.draft is None:
                 why = next((e.get("why") for tid, e in reversed(ctx.events)

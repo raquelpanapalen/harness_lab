@@ -35,9 +35,7 @@ from xml.etree import ElementTree as ET
 logging.getLogger("pypdf").setLevel(logging.ERROR)  # font warnings on real-world PDFs
 
 TEXT_EXT = {"md", "txt", "csv", "json", "jsonl", "html"}
-LINE_EXT = {"md", "txt", "html", "jsonl"}
 IMAGE_EXT = {"png", "jpg", "jpeg", "gif", "webp"}
-LAZY_EXT = {"pdf"}  # parsed on first use (SPEC §3); images are transcribed per need (build ticket 08)
 
 DETAIL_WORDS = 15
 URL_RX = re.compile(r"https?://([A-Za-z0-9.-]+)(/[^\s)\]\"'<>]+|\?[^\s)\]\"'<>]+)")

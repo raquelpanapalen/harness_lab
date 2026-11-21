@@ -239,8 +239,8 @@ def _minute(ts: str | None) -> str:
 
 
 def _claims(text: str) -> list[tuple[int, str]]:
-    flat = "\n".join(" ".join(l.split()) for l in (text or "").splitlines()
-                     if not l.strip().upper().startswith(("MARKS:", "SIGNED:")))
+    flat = "\n".join(" ".join(ln_.split()) for ln_ in (text or "").splitlines()
+                     if not ln_.strip().upper().startswith(("MARKS:", "SIGNED:")))
     return [(int(n), " ".join(c.split())) for n, c in
             re.findall(r"(?m)^\s*(\d{1,2})[.)]\s+(.+?)(?=^\s*\d{1,2}[.)]\s|\Z)", flat, re.S)]
 

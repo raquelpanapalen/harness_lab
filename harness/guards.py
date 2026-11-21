@@ -29,7 +29,6 @@ import threading
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from . import vision
 
 AGENT_ID = re.compile(r"\b[a-z][a-z-]*-\d{2,3}\b")
 URL = re.compile(r"\b(https?|ftp)://([^/\s\"'<>()\]]+)([^\s\"'<>)\]]*)", re.I)
@@ -380,7 +379,6 @@ def _guard_action(ctx, rec, a: dict, f, roster: set[str], safe: set[str], rules:
     probs: list[str] = []
     if tool == "containment":
         ops = []
-        rows = (f.roster().value or {}) if f is not None else {}
         comp = set(f.compromised().value or []) if f is not None and _safe_ok(f, "compromised") else None
         attack_domains = set(f.attacker_domains().value or []) if f is not None and _safe_ok(f, "attacker_domains") \
             else None

@@ -129,11 +129,6 @@ def solve(ctx: Ctx, rec: TaskRecord) -> State:
     return solvers.run(ctx, rec)
 
 
-def not_built(ctx: Ctx, rec: TaskRecord) -> State:
-    rec.errors.append(f"{rec.state.value}: stage not built yet")
-    return State.FALLBACK_SUBMIT
-
-
 def loop(ctx: Ctx, rec: TaskRecord) -> State:
     """One notebook-loop step (harness/loop.py); LOOP again until done or the step cap, then COMPOSE."""
     return loop_mod.step(ctx, rec)

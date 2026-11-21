@@ -184,7 +184,7 @@ def test_actions_follow_the_allowlist() -> None:
 def test_unread_photo_ticket_skips_the_loop() -> None:
     with tempfile.TemporaryDirectory() as d:
         c = ctx(Path(d), [])
-        rec = run_task(c, TaskRecord("t01", "Work the open ticket in /tickets/.", 1, request=None, state=State.LOOP))
+        run_task(c, TaskRecord("t01", "Work the open ticket in /tickets/.", 1, request=None, state=State.LOOP))
         assert not c.seen and c.client.submits[0][1:3] == ("OK", None), c.client.submits  # no model call
 
 
@@ -196,7 +196,7 @@ def test_fallback_composes_from_the_notebook() -> None:
         def boom(c, rec):
             rec.notes.append({"fact": "devops-07", "sources": [{"path": "/fleet/agents.csv", "record": "devops-07"}]})
             raise RuntimeError("loop broke")
-        rec = run_task(c, TaskRecord("t01", "a sorted JSON array", 1, answer_shape="list"),
+        run_task(c, TaskRecord("t01", "a sorted JSON array", 1, answer_shape="list"),
                        {**HANDLERS, State.LOOP: boom})
         assert c.client.submits[0][2] == ["devops-07"], c.client.submits
 

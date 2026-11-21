@@ -19,7 +19,6 @@ import re
 from typing import Any
 
 from . import guards
-from .facts.world import domain_of
 from .vision import body as _strip_marks  # noqa: F401  (kept for symmetry with transcribed messages)
 from .wave4 import AGENT_ID, DOMAIN, Result, _exfil, resolve_agent
 
@@ -184,7 +183,8 @@ def _route(f, request: str, message: str, action: str | None, allow: list[str]) 
                 lines.append(f"Exfiltrated customer records: {ex.value['records']}")
         ask = " ".join(s.strip() for s in re.split(r"(?<=[.!?])\s+", body) if re.search(r"\bplease\b|\bask\b", s, re.I))
         if ask and not used:
-            lines.append(f"Request: {re.sub(r'(?i)^please (?:ask [^.]*?by e-?mail to|send [^.]*?)\s*', 'Please ', ask)}")
+            ask = re.sub(r"(?i)^please (?:ask [^.]*?by e-?mail to|send [^.]*?)\s*", "Please ", ask)
+            lines.append(f"Request: {ask}")
         subject = head.get("subject") or "Incident update"
         r.actions = [{"tool": "send_message", "args": {"to": to, "subject": subject, "body": "\n".join(lines)}}] \
             if "send_message" in allow else []

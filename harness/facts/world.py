@@ -90,7 +90,7 @@ def col(head: list[str], *keys: str) -> int | None:
 
 def sections(lines: list[str]) -> dict[str, tuple[int, int]]:
     """Markdown heading (lowercased) -> (first line index, end index) of its body."""
-    marks = [(i, l.lstrip("#").strip().lower()) for i, l in enumerate(lines) if l.startswith("#")]
+    marks = [(i, ln_.lstrip("#").strip().lower()) for i, ln_ in enumerate(lines) if ln_.startswith("#")]
     out = {}
     for k, (i, name) in enumerate(marks):
         out[name] = (i + 1, marks[k + 1][0] if k + 1 < len(marks) else len(lines))
@@ -154,7 +154,7 @@ SETTING_QUESTIONS = {
 
 def _items(text: str) -> list[str]:
     """Numbered items ("1. Title. body …") as whole paragraphs; the full text if there are none."""
-    t = "\n".join(l for l in str(text or "").splitlines() if not l.strip().upper().startswith("MARKS:"))
+    t = "\n".join(ln_ for ln_ in str(text or "").splitlines() if not ln_.strip().upper().startswith("MARKS:"))
     t = re.split(r"\bSigned\s*:", " ".join(t.split()))[0]  # the signature block is not an item
     parts = re.split(r"(?:^|\s)(?=\d{1,2}[.)]\s+[A-Z])", t)
     return [x.strip() for x in parts if x.strip()] or [t]
@@ -482,19 +482,19 @@ class Facts:
             for name, (a, b) in sec.items():
                 body = [(i + 1, lines[i]) for i in range(a, b) if lines[i].strip().startswith(("-", "*"))]
                 if "approved" in name and "transfer" in name:
-                    for ln, l in body:
-                        t = re.search(r"\b([A-Z]{2,5}-\d+)\b", l)
+                    for ln, item in body:
+                        t = re.search(r"\b([A-Z]{2,5}-\d+)\b", item)
                         if t:
-                            approved.append({"line": ln, "ticket": t.group(1), "text": l,
-                                             "domains": {d.lower() for d in DOMAIN_RX.findall(l)}})
+                            approved.append({"line": ln, "ticket": t.group(1), "text": item,
+                                             "domains": {d.lower() for d in DOMAIN_RX.findall(item)}})
                 elif "red" in name and "team" in name:
-                    redteam |= {w.lower() for _, l in body for w in re.findall(r"[\w.@:-]+", l)}
+                    redteam |= {w.lower() for _, item in body for w in re.findall(r"[\w.@:-]+", item)}
                 elif "flagged" in name or "compromised" in name:
                     known = self.agent_ids()
-                    for ln, l in body:
+                    for ln, item in body:
                         for a_ in known:
-                            if re.search(rf"(?<![\w-]){re.escape(a_)}(?![\w-])", l):
-                                flagged[a_] = {"line": ln, "text": l, "quarantined": "quarantin" in l.lower()}
+                            if re.search(rf"(?<![\w-]){re.escape(a_)}(?![\w-])", item):
+                                flagged[a_] = {"line": ln, "text": item, "quarantined": "quarantin" in item.lower()}
             return Fact({"path": p, "rows": table, "approved": approved, "redteam": redteam, "flagged": flagged},
                         self._file_units(p))
         return self._once("changes", f)

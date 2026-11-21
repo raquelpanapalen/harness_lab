@@ -1,4 +1,5 @@
-"""Offline: a submit rejected with 400 (e.g. a source without `path`) goes back to the model, which can fix it.
+"""Offline: a submit rejected with 400 (here: a source the server refuses) goes back to the model, which can fix it.
+(Sources without `path` never reach the server any more: agent.py drops them before submitting.)
 python tests/test_submit_retry.py"""
 import json
 import pathlib
@@ -11,7 +12,7 @@ from arena import llm  # noqa: E402
 from arena.client import ArenaError, Task  # noqa: E402
 
 submits = [
-    {"outcome": "OK", "answer": ["a"], "sources": [{"path": "/a.csv", "record": "a"}, {"record": "b"}]},
+    {"outcome": "OK", "answer": ["a"], "sources": [{"path": "/a.csv", "record": "a"}, {"path": "/b.csv", "record": "b"}]},
     {"outcome": "OK", "answer": ["a"], "sources": [{"path": "/a.csv", "record": "a"}]},
 ]
 seen: list[list] = []
@@ -26,8 +27,8 @@ def fake_chat(messages, **kw):
 class FakeClient:
     def submit(self, run_id, task_id, outcome, answer, sources):
         seen.append(sources)
-        if any("path" not in s for s in sources):
-            raise ArenaError("POST /submit -> 400: invalid request: sources.1.path: Invalid input", status=400)
+        if any(s.get("path") == "/b.csv" for s in sources):
+            raise ArenaError("POST /submit -> 400: invalid request: sources.1: unknown file", status=400)
         return {"received": True, "task_id": task_id, "score": 1}
 
 

@@ -24,7 +24,7 @@ import zipfile
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, unquote, urlparse
+from urllib.parse import unquote, urlparse
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from replay import tools as T  # noqa: E402
@@ -224,7 +224,7 @@ def make_handler(rp: Replay):
             if not self._auth():
                 return
             u = urlparse(self.path)
-            p, q = unquote(u.path), parse_qs(u.query)
+            p = unquote(u.path)
             if p == "/api/v1/me":
                 return self._json(200, {"team": {"id": "local", "name": "local replay"},
                                         "final_window": {"open": False, "opens_at": None, "closes_at": None},

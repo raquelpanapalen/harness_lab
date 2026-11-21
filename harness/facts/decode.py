@@ -13,7 +13,7 @@ import re
 import unicodedata
 from urllib.parse import unquote
 
-ZERO_WIDTH = dict.fromkeys(map(ord, "​‌‍⁠﻿­᠎⁡⁢⁣⁤"), None)
+ZERO_WIDTH = dict.fromkeys(map(ord, "\u200b\u200c\u200d\u2060\ufeff\u00ad\u180e\u2061\u2062\u2063\u2064"), None)
 
 # Cyrillic / Greek letters that render like Latin ones (the common confusables; NFKC does not fold these).
 _HOMO = str.maketrans({
@@ -92,11 +92,6 @@ def reveal(text: str) -> str:
     for kind, d in decode_runs(t):
         t += f"\n[decoded {kind}: {fold(d)}]"
     return t
-
-
-def changed(text: str) -> bool:
-    """True when decoding revealed something the raw text did not show."""
-    return reveal(text) != text
 
 
 def pdf_page_image(data: bytes, page: int) -> tuple[bytes, str] | None:

@@ -1,5 +1,7 @@
 """Tiny paid check of the main model's tool calling (2 calls) + Jev decide (1 call). Costs well under $0.01."""
-import json, sys, pathlib
+import json
+import sys
+import pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 from arena import llm
 tr = llm.CostTracker()

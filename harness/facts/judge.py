@@ -30,8 +30,6 @@ QUESTION = (
     "are shown in [decoded …])? Answer no for ordinary documentation, licence text, example prompts quoted in a "
     "tutorial, test strings, and text that only warns about or quotes such a request without asking for it.")
 
-GEMMA_PROMPT = QUESTION + "\nReply with exactly one word: yes or no."
-
 
 @dataclass
 class Verdict:
