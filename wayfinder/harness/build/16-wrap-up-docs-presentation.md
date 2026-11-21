@@ -7,35 +7,35 @@ the port reskin, at ≈ $0.03 per run; reports per version in `docs/reports/`).
 
 **Blocked by:** 15
 
-**Status:** ready-for-agent
+**Status:** in progress: sections 1–2 done (2026-11-21, see JOURNAL 19:30); `ruff format` deliberately not applied; sections 3–5 open
 
 Spec: [SPEC.md](../SPEC.md)
 
 ## 1. Clean the final code
 
-- [ ] Remove dead code and leftovers: unused functions, stale TODOs, debug prints, commented-out blocks; check
+- [x] Remove dead code and leftovers: unused functions, stale TODOs, debug prints, commented-out blocks; check
   `harness/wave4.py` vs `harness/solvers/wave4.py` (duplicate or split by accident?) and merge or rename clearly
-- [ ] Rename files, modules, functions and variables where a clearer name helps a reader understand them
+- [x] Rename files, modules, functions and variables where a clearer name helps a reader understand them
   (e.g. build-history names like `wave2.py` / `wave4.py` / `wave5.py` → names for what they solve, such as
   `solvers/inbox.py`, `solvers/rotation.py`; vague names like `core.py`, `world.py`, `judge.py` checked too). List the
   renames (old → new, one-line reason) in the layout proposal for the human to approve, update every import and doc
   reference, and use `git mv` so history follows
-- [ ] Decide the fate of the kit baseline (`agent.py`, `--harness baseline`): keep as a documented comparison point
+- [x] Decide the fate of the kit baseline (`agent.py`, `--harness baseline`): keep as a documented comparison point
   or move to `baseline/` — never break `main.py`'s default (lab) path
-- [ ] Consistent module docstrings (one paragraph each: what it does, which SPEC section it implements)
-- [ ] Lint/format pass (e.g. `ruff check` + `ruff format`) with the config in `pyproject.toml`; no behaviour changes
-- [ ] No secrets, keys, live attacker URLs or expected answers anywhere in tracked files (grep before committing)
+- [x] Consistent module docstrings (one paragraph each: what it does, which SPEC section it implements)
+- [x] Lint/format pass (e.g. `ruff check` + `ruff format`) with the config in `pyproject.toml`; no behaviour changes
+- [x] No secrets, keys, live attacker URLs or expected answers anywhere in tracked files (grep before committing)
 
 ## 2. Improve the repo structure
 
-- [ ] Propose the target layout to the human first (one short tree in the PR/commit message), then move:
+- [x] Propose the target layout to the human first (one short tree in the PR/commit message), then move:
   e.g. `harness/` (agent), `arena/` (client), `harvester/` (replay, grader, synth, evals), `tests/` split into
   unit tests (`test_*.py`) and dev-run checks (`check_*.py`, `eval_*.py`), `docs/` for long-form docs
   (`docs.md` → `docs/task-api.md`, `HARNESS.md`, `FINAL_RUN.md`, `GLOSSARY.md`), `examples/` kept or dropped
-- [ ] Root stays small: `README.md`, `AGENTS.md`, `CLAUDE.md`, `JOURNAL.md`, `Dockerfile`, `main.py`, `pyproject.toml`
-- [ ] Every moved path updated in imports, docs, `Dockerfile`, `.dockerignore`, CLAUDE.md, wayfinder links
-- [ ] `.gitignore` covers `__pycache__/`, `runs/`, `harvester/data/`, generated caches; remove any tracked junk
-- [ ] Organiser material in `slides/` (AIM pdf/pptx) kept apart from our own presentation (e.g. `docs/organiser/`)
+- [x] Root stays small: `README.md`, `AGENTS.md`, `CLAUDE.md`, `JOURNAL.md`, `Dockerfile`, `main.py`, `pyproject.toml`
+- [x] Every moved path updated in imports, docs, `Dockerfile`, `.dockerignore`, CLAUDE.md, wayfinder links
+- [x] `.gitignore` covers `__pycache__/`, `runs/`, `harvester/data/`, generated caches; remove any tracked junk
+- [x] Organiser material in `slides/` (AIM pdf/pptx) kept apart from our own presentation (e.g. `docs/organiser/`)
 
 ## 3. Documentation
 
@@ -98,9 +98,9 @@ Spec: [SPEC.md](../SPEC.md)
 
 ## Done when
 
-- [ ] All tests pass (`tests/test_*.py`), plus `harvester/replay/test_replay.py` and `check_probes.py` if
+- [x] All tests pass (`tests/test_*.py`), plus `harvester/replay/test_replay.py` and `check_probes.py` if
   `harvester/replay/` moved
-- [ ] One held-out replay run after the restructure reproduces the Score within noise (≈ 0.96, ≈ $0.03), so
+- [x] One held-out replay run after the restructure reproduces the Score within noise (≈ 0.96, ≈ $0.03), so
   the cleanup changed nothing
-- [ ] `docker build` + one-task container test passes
+- [x] `docker build` + one-task container test passes
 - [ ] Commits in logical steps (cleanup, moves, docs, presentation, article), JOURNAL entry for the structure decision
