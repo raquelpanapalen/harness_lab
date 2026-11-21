@@ -150,13 +150,16 @@ def render(transcript: str, ext: str, seed: str) -> bytes:
             continue
         hand = bool(re.match(r"\s*(signed|signature|approved by|initials)\b", raw, re.I)) or rnd.random() < 0.3
         width = 58 if hand else 66
-        for piece in textwrap.wrap(raw, width) or [raw]:
+        for piece in textwrap.wrap(raw, width, break_on_hyphens=False, break_long_words=False) or [raw]:
             rows.append((piece, f_hand if hand else f_mono, "ink"))
     for n in notes:
         rows.append(("", f_mono, "ink"))
         rows.append((n, f_hand, "red"))
     line_h = 40
     H = 170 + line_h * len(rows) + 80
+    probe = ImageDraw.Draw(Image.new("RGB", (1, 1)))
+    widest = max([probe.textlength(t, font=fn) for t, fn, _ in rows] + [probe.textlength(title, font=f_title) + 260])
+    W = max(W, int(widest) + 170)  # unbroken ids and paths widen the sheet instead of running off it
     paper = Image.new("RGB", (W, H), (238, 236, 230))
     d = ImageDraw.Draw(paper)
     for _ in range(int(W * H / 900)):  # paper grain
