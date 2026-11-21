@@ -19,3 +19,4 @@ From [SPEC.md](../SPEC.md). Frontier: tickets whose blockers are all done. Measu
 | 13 | [Solver wave 4](13-solver-wave-4.md) | 07, 08, 10 |
 | 14 | [Wave 5 helpers and code-only cut-offs](14-wave-5-helpers.md) | 06, 09 |
 | 15 | [Held-out milestone](15-held-out-milestone.md) | 03, 11, 12, 13, 14 |
+| 16 | [Wrap-up: clean code, tidy repo, docs, presentation, article](16-wrap-up-docs-presentation.md) | 15 |
