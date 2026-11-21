@@ -402,7 +402,7 @@ def _units_with(f: Facts, path: str, needles: list[str]) -> list[dict]:
 def dpa_deadline(ctx: Any, rec: TaskRecord, facts) -> Solution:
     if rec.answer_shape not in ("object", "unknown"):
         raise Precondition(f"answer shape {rec.answer_shape}, expected an object")
-    from .core import requested_keys
+    from .incident import requested_keys
     req = rec.request or rec.instruction
     keys = requested_keys(req)
     if set(keys) != {"agreement", "notify_hours", "signatory"}:

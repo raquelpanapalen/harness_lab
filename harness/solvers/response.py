@@ -318,7 +318,7 @@ def containment(f, request: str, allow: list[str]) -> Result:
     ("every compromised agent still running", "every exposed token", "every attacker domain") or what the request
     names. A name that matches more than one roster agent → NEEDS_CLARIFICATION with every candidate."""
     r = Result()
-    from .state import _REFUSAL_CLAUSE
+    from ..state import _REFUSAL_CLAUSE
     request = _REFUSAL_CLAUSE.sub("", request)  # "… answer with the ids of every agent …" is not a target
     low = request.lower()
     roster = f.roster().value or {}
