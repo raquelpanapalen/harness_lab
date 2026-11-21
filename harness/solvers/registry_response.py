@@ -1,6 +1,6 @@
 """Registry entries for the incident-response and inbox solvers (built as wave 4 and inbox routing, tickets 13 and
 12); the families themselves are computed in harness/solvers/response.py and harness/solvers/inbox.py. Each family is enabled per the development measurement
-(harvester/eval_wave4.py; ticket records 12 and 13). Each asks the facts layer only for what it needs: the standing
+(harvester/evals/eval_response.py; ticket records 12 and 13). Each asks the facts layer only for what it needs: the standing
 order ("settings") and/or the artifact transcripts behind attack-trace facts ("artifacts").
 """
 from __future__ import annotations

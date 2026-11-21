@@ -1,12 +1,12 @@
 """Measure solver wave 4 (harness/solvers/response.py, build ticket 13) against the development runs' expected answers.
 Evaluation only (reads harvester/data; the 5 most recent runs are held out).
 
-    uv run harvester/eval_wave4.py [--runs N] [--family exfiltration]
+    uv run harvester/evals/eval_response.py [--runs N] [--family exfiltration]
 
 Per family: tasks, confident, confident-and-correct, confident-but-wrong (must stay ~0: a confident wrong answer skips
 the loop), and correct overall. Containment and actions are compared on the state they would produce
 ({quarantine, rotate, block}); notifications on the expected message fields. Images (standing order, artifacts) are
-transcribed with tests/check_facts.py's evaluation transcriber, Jev verdicts cached there too.
+transcribed with tests/checks/check_facts.py's evaluation transcriber, Jev verdicts cached there too.
 """
 from __future__ import annotations
 
@@ -19,10 +19,10 @@ import warnings
 from pathlib import Path
 
 warnings.filterwarnings("ignore")
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "harvester"))
-sys.path.insert(0, str(ROOT / "tests"))
+sys.path.insert(0, str(ROOT / "tests" / "checks"))
 
 from arena import llm  # noqa: E402
 from check_facts import Transcriber, transcripts  # noqa: E402
@@ -35,8 +35,8 @@ from harness.normalise import answer as normalise  # noqa: E402
 ALL = ["containment:quarantine_agent", "containment:rotate_token", "containment:block_domain", "send_message"]
 FAMILIES = {"exfiltration", "canaries", "breach_notification", "containment", "rotation", "first_token",
             "token_status", "board_origin", "inbox", "attacker_domains", "partner_draft"}
-SCRATCH = ROOT / "runs" / "eval_wave4"
-PROGRESS = Path("/tmp/claude-1000/eval_wave4.progress")  # tail -f to follow a long eval
+SCRATCH = ROOT / "runs" / "eval_response"
+PROGRESS = Path("/tmp/claude-1000/eval_response.progress")  # tail -f to follow a long eval
 
 
 def progress(line: str) -> None:
@@ -130,7 +130,7 @@ def main() -> int:
     wrong: dict[str, list] = collections.defaultdict(list)
     runs = dev_runs()[: a.runs] if a.runs else dev_runs()
     requests = {(r["run_id"], r["task_id"]): r["request"] for r in load_tasks(None)}  # resolved (ticket/inbox) text
-    progress(f"eval_wave4 start: {len(runs)} runs, families {a.family or 'all'}")
+    progress(f"eval_response start: {len(runs)} runs, families {a.family or 'all'}")
     for i, rdir in enumerate(runs, 1):
         t0, before = time.time(), {k: collections.Counter(v) for k, v in stats.items()}
         progress(f"[{i}/{len(runs)}] {rdir.name}: start")

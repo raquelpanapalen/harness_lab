@@ -6,7 +6,7 @@
     view.units("/fleet/agents.csv")            # evidence units of one file (PDFs parsed on first use)
     view.table("/fleet/agents.csv")            # SQLite table name; view.sql("SELECT ...") runs a query
 
-An **evidence unit** is exactly what the grader cites (docs.md, "Submit"): a line (md/txt/html/jsonl), a record (csv:
+An **evidence unit** is exactly what the grader cites (docs/task-api.md, "Submit"): a line (md/txt/html/jsonl), a record (csv:
 first column, json: `id` field), sheet + row (xlsx/ods), paragraph (docx/odt), page (pdf), or a whole file (path only,
 every file has one). `Unit.source()` is the citation; `Unit.alts` holds equivalent locators the grader also accepts
 (a csv record is also its line). `untrusted` is set by structural signals only, never by marker phrases
@@ -781,7 +781,7 @@ class TaskView:
 
 
 def _match(s: dict, e: dict) -> bool:
-    """The grader's locator match (harvester/replay/grade.py `_src_match`, docs.md: line ±2)."""
+    """The grader's locator match (harvester/replay/grade.py `_src_match`, docs/task-api.md: line ±2)."""
     if "line" in e:
         try:
             return "line" in s and abs(int(s["line"]) - int(e["line"])) <= 2

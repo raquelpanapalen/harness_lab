@@ -10,8 +10,8 @@ It replaces the kit baseline in `agent.py` and is ready to implement ticket by t
 
 ## Notes
 
-- Domain: Harness Arena Task API (`docs.md`), offline replay + calibrated grader (`harvester/`), rules in `AGENTS.md`.
-  Vocabulary in `GLOSSARY.md`.
+- Domain: Harness Arena Task API (`docs/task-api.md`), offline replay + calibrated grader (`harvester/`), rules in `AGENTS.md`.
+  Vocabulary in `docs/glossary.md`.
 - Final-legal throughout: only `google/gemma-4-31b-it`, `typesafe/jev-1.14`, `qwen/qwen3-embedding-8b` via OpenRouter;
   ≤ $3 and ≤ 30 min per run; runs in the container. No local models.
 - Goal: the leaderboard Score on held-out replay runs, Score = A · (0.5 + 0.5 · C), C log-scaled from 1 at $0.049 to

@@ -1,5 +1,5 @@
 """Offline: a submit rejected with 400 (here: a source the server refuses) goes back to the model, which can fix it.
-(Sources without `path` never reach the server any more: agent.py drops them before submitting.)
+(Sources without `path` never reach the server any more: baseline/agent.py drops them before submitting.)
 python tests/test_submit_retry.py"""
 import json
 import pathlib
@@ -7,7 +7,7 @@ import sys
 
 KIT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(KIT))
-import agent  # noqa: E402
+from baseline import agent  # noqa: E402
 from arena import llm  # noqa: E402
 from arena.client import ArenaError, Task  # noqa: E402
 

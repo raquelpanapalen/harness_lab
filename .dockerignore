@@ -6,4 +6,4 @@ runs
 .cache
 .git
 **/__pycache__
-slides
+docs/organiser

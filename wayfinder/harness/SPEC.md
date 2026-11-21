@@ -2,7 +2,7 @@
 
 The destination of the [map](map.md): every decision needed to build the harness that replaces the kit baseline in
 `agent.py`. Each section names the ticket that decided it; the ticket holds the reasoning and evidence. Terms are in
-`GLOSSARY.md`.
+`docs/glossary.md`.
 
 ## 1. Objective and measurement
 

@@ -8,8 +8,8 @@ runs/
 node_modules/
 submission.tar.gz
 .DS_Store
-examples/pi/pi-agent/*
-!examples/pi/pi-agent/models.json
+baseline/pi/pi-agent/*
+!baseline/pi/pi-agent/models.json
 
 # harvested dataset and local replay output (large, contains expected answers)
 harvester/data/

@@ -1,8 +1,8 @@
 """Measure image reading (build ticket 08) on development images: ticket stamps and request text, scanned and
 screenshot domains, standing orders. Evaluation only (reads harvester/data; the 5 most recent runs are held out).
 
-    uv run harvester/eval_vision.py --runs 6          # first N development runs
-    uv run harvester/eval_vision.py --runs 6 --offline
+    uv run harvester/evals/eval_vision.py --runs 6          # first N development runs
+    uv run harvester/evals/eval_vision.py --runs 6 --offline
 
 Ground truth:
 - tickets: the task's `request` column is the open ticket's text. The open image is the one whose transcript contains
@@ -25,7 +25,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "harvester"))
 

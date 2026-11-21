@@ -116,7 +116,7 @@ The index runs once per run, before any task starts.
   variants, so a jsonl event whose free text differs from the base version was rewritten for that task, and it is
   flagged.
 - **Local tools:** `tree`, `list`, `read`, `search` and `query_logs` are answered from the index, and their output
-  matches the server's byte for byte (checked against every recorded response by `tests/check_index.py`). Only
+  matches the server's byte for byte (checked against every recorded response by `tests/checks/check_index.py`). Only
   `threat_intel`, `access_path`, `get_containment`, the state-changing tools and `submit` go to the server. After a
   call that may change files, the task's manifest is re-read and the changed files are indexed again.
 - **If setup fails:** the run continues with tools falling back to the server.
@@ -349,6 +349,6 @@ Every model call and Task API call goes through the `Pacer`:
   Report scores only on held-out runs (`--only-runs 5`).
 - **Unit and offline tests:** `tests/test_lab_*.py` (machine, intake, loop, guards, pacing, vision, wave4),
   `tests/test_solvers.py`, `test_access.py`, `test_judged.py`, `test_lab_response.py`, `test_index.py`, `test_facts.py`, `test_offline.py`.
-- **Per-family evaluators:** `harvester/eval_intake.py`, `eval_wave4.py`, `eval_rotation.py`, `eval_vision.py`, and
-  `tests/check_solvers.py`, which runs the solvers plus `guards.check` against the dev runs.
+- **Per-family evaluators:** `harvester/evals/eval_intake.py`, `eval_response.py`, `eval_rotation.py`, `eval_vision.py` (in `harvester/evals/`), and
+  `tests/checks/check_solvers.py`, which runs the solvers plus `guards.check` against the dev runs.
 - **Score:** `uv run harvester/report.py` prints A, cost, C and `Score = A · (0.5 + 0.5 · C)`.

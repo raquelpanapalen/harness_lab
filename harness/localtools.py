@@ -1,5 +1,5 @@
 """The platform's read-only tools (`tree`, `list`, `read`, `search`, `query_logs`) answered from the workspace index,
-with the server's exact output (checked against every recorded server response: tests/check_index.py).
+with the server's exact output (checked against every recorded server response: tests/checks/check_index.py).
 
     call(view, "read", {"path": "/AGENTS.md"})  ->  {"ok": True, "result": {...}}  |  {"ok": False, "error": "..."}
 """

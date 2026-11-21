@@ -2,7 +2,7 @@
 answers (harvester/data), which the harness never does. The 5 held-out runs are skipped. Makes real Jev calls (and
 Gemma calls for uncertain verdicts), cached in the scratch file given by --cache, so reruns cost nothing.
 
-    uv run tests/check_facts.py [--runs N] [--cache FILE] [--no-vision] [-v]
+    uv run tests/checks/check_facts.py [--runs N] [--cache FILE] [--no-vision] [-v]
 
 Images (quarantined artifacts, their attachments, the signed standing order) are transcribed with one Gemma vision
 call each (evaluation-only stand-in for ticket 08), cached by blob hash next to the judge cache.
@@ -30,9 +30,9 @@ import warnings
 from pathlib import Path
 
 warnings.filterwarnings("ignore")
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "tests"))
+sys.path.insert(0, str(ROOT / "tests" / "checks"))
 
 from arena import llm  # noqa: E402
 from check_index import build, dev_runs  # noqa: E402

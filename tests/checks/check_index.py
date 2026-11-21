@@ -2,10 +2,10 @@
 harvester/data (recorded server responses, expected citations), which the harness itself never does. The 5 held-out
 runs (newest, as `replay/server.py --only-runs 5` picks them) are skipped.
 
-    uv run tests/check_index.py probes      # local tree/list/read/search/query_logs == recorded server responses
-    uv run tests/check_index.py citations   # share of expected citations that resolve to an evidence unit
-    uv run tests/check_index.py untrusted   # untrusted-flag recall / false positives (planted text = diff vs base)
-    uv run tests/check_index.py all [-v] [--runs N]
+    uv run tests/checks/check_index.py probes      # local tree/list/read/search/query_logs == recorded server responses
+    uv run tests/checks/check_index.py citations   # share of expected citations that resolve to an evidence unit
+    uv run tests/checks/check_index.py untrusted   # untrusted-flag recall / false positives (planted text = diff vs base)
+    uv run tests/checks/check_index.py all [-v] [--runs N]
 """
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ import sys
 import time
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "harvester"))
 

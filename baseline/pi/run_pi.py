@@ -5,7 +5,7 @@ Python (pypdf, python-docx, openpyxl), reads images with its vision-capable read
 through the `arena` command (tools, plan changes, messages, submit).
 
     npm i -g @mariozechner/pi-coding-agent      # or set PI_BIN to a local install
-    uv run examples/pi/run_pi.py --kind dev --note "hypothesis" [--tasks t01,t02] [--parallel 4] [--budget 1.0]
+    uv run baseline/pi/run_pi.py --kind dev --note "hypothesis" [--tasks t01,t02] [--parallel 4] [--budget 1.0]
 """
 from __future__ import annotations
 

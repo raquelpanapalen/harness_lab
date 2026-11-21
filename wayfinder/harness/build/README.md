@@ -36,4 +36,5 @@ The tickets above name modules as they were built. Ticket 16 renamed them for wh
 | `harness/facts/world.py` | `harness/facts/runbook.py` |
 | `harness/facts/judge.py` | `harness/facts/instruction_judge.py` |
 | `harness/tools.py` | `harness/tool_router.py` |
+| `harvester/eval_wave4.py` | `harvester/evals/eval_response.py` |
 | `tests/test_wave2.py`, `test_wave5.py`, `test_lab_wave4.py` | `tests/test_access.py`, `test_judged.py`, `test_lab_response.py` |

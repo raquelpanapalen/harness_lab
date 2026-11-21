@@ -1,6 +1,6 @@
 # Reference harness: pi + the fixed small model
 
-A second baseline next to `agent.py`: the [pi coding agent](https://www.npmjs.com/package/@mariozechner/pi-coding-agent)
+A second baseline next to `baseline/agent.py`: the [pi coding agent](https://www.npmjs.com/package/@mariozechner/pi-coding-agent)
 (bash, read, edit, write tools) driving the fixed small model (`ARENA_MAIN_MODEL`) on each task.
 
 How it works, per task:
@@ -16,8 +16,8 @@ How it works, per task:
 ```bash
 npm i -g @mariozechner/pi-coding-agent         # or: PI_BIN=/path/to/node_modules/.bin/pi
 export OPENROUTER_API_KEY=… ARENA_API_KEY=… ARENA_BASE_URL=…
-uv run examples/pi/run_pi.py --kind dev --parallel 5 --budget 1.0 --note "pi baseline"
-uv run examples/pi/run_pi.py --kind dev --tasks t01,t02 --thinking medium --note "medium thinking on t01, t02"
+uv run baseline/pi/run_pi.py --kind dev --parallel 5 --budget 1.0 --note "pi baseline"
+uv run baseline/pi/run_pi.py --kind dev --tasks t01,t02 --thinking medium --note "medium thinking on t01, t02"
 ```
 
 `pi-agent/models.json` registers the fixed model for pi's OpenRouter provider (with the pinned provider's prices, so pi's

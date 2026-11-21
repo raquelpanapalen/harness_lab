@@ -6,8 +6,8 @@ import pathlib
 import tempfile
 KIT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(KIT))
-sys.path.insert(0, str(KIT / "examples" / "pi"))
-from agent import Config, parse_args, normalize_answer, trim_history, to_openai_tools
+sys.path.insert(0, str(KIT / "baseline" / "pi"))
+from baseline.agent import Config, parse_args, normalize_answer, trim_history, to_openai_tools
 from arena import llm
 from arena.client import ToolSpec
 import run_pi
@@ -99,7 +99,7 @@ try:
     finally:
         llm.time.sleep = real_sleep
     # pi gets the same base URL through a per-run copy of pi-agent/models.json.
-    committed = json.loads((KIT / "examples" / "pi" / "pi-agent" / "models.json").read_text())
+    committed = json.loads((KIT / "baseline" / "pi" / "pi-agent" / "models.json").read_text())
     with tempfile.TemporaryDirectory() as d:
         cfg = json.loads((run_pi.agent_dir(pathlib.Path(d)) / "models.json").read_text())
         assert cfg["providers"]["openrouter"]["baseUrl"] == "http://arena-gateway:8080/openrouter/api/v1"
@@ -115,7 +115,7 @@ finally:
             os.environ[k] = v
 
 # The forced last submit is rejected (400, malformed sources): resubmit once without sources instead of losing the task.
-import agent
+from baseline import agent
 from arena.client import ArenaError, Task
 
 

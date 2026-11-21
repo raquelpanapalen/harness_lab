@@ -2,7 +2,7 @@
 development runs: rotation tasks (answer = the start) and containment answers (`rotate: [{token, at}]`).
 Evaluation only (reads harvester/data; the 5 most recent runs are held out).
 
-    uv run harvester/eval_rotation.py
+    uv run harvester/evals/eval_rotation.py
 
 Standing orders are transcribed with the harness prompt (cached in runs/vision_eval_cache.json, shared with
 eval_vision.py); settings come from harness.facts' parse_standing_order (Jev only where its regexes can't decide).
@@ -15,7 +15,7 @@ import re
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "harvester"))
 

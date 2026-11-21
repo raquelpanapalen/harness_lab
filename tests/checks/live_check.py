@@ -2,7 +2,7 @@
 import json
 import sys
 import pathlib
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
 from arena import llm
 tr = llm.CostTracker()
 tools = [{"type": "function", "function": {"name": "read", "description": "Read a file", "parameters": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]}}}]

@@ -2,7 +2,7 @@
 tasks with a stand-in ctx (real Jev / Gemma through the same pacer interface), and the replay grader scores the
 draft (answer, outcome, citations). Evaluation only: reads harvester/data. Held-out runs skipped.
 
-    uv run tests/check_solvers.py [--runs N] [--family F] [-v]
+    uv run tests/checks/check_solvers.py [--runs N] [--family F] [-v]
 
 Families are recognised here by request patterns (the harness uses intake's Jev family). Per family: tasks, how
 often the solver was confident, mean Score of confident drafts, and the mean Score the family would get if every
@@ -20,9 +20,9 @@ import warnings
 from pathlib import Path
 
 warnings.filterwarnings("ignore")
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "tests"))
+sys.path.insert(0, str(ROOT / "tests" / "checks"))
 sys.path.insert(0, str(ROOT / "harvester"))
 
 from arena import llm  # noqa: E402

@@ -34,7 +34,7 @@ ARENA_BASE_URL=http://localhost:3998 ARENA_API_KEY=arena_local \
 uv run harvester/replay/server.py --only-runs 5       # then measure on the held-out runs
 ```
 
-Details, flags and known gaps: [`harvester/README.md`](harvester/README.md). Full Task API reference: [`docs.md`](docs.md).
+Details, flags and known gaps: [`harvester/README.md`](harvester/README.md). Full Task API reference: [`docs/task-api.md`](docs/task-api.md).
 
 ## Setup
 
@@ -104,7 +104,7 @@ git archive -o submission.tar.gz HEAD     # committed files only (no .env), JOUR
   shows passed or failed and a report, plus score and cost for a demo submission (none for the final submission). Prizes need a passing check and at least one `JOURNAL.md` entry of your own.
 - The container gets `ARENA_BASE_URL`, `ARENA_API_KEY`, `OPENROUTER_BASE_URL`, `OPENROUTER_API_KEY` and
   `ARENA_RUN_KIND`. Read them from the environment; never hard-code URLs or keys. It is stopped after 30 minutes.
-- Limits, endpoint order and latencies measured in a full rehearsal of the final: [FINAL_RUN.md](FINAL_RUN.md).
+- Limits, endpoint order and latencies measured in a full rehearsal of the final: [docs/final-run.md](docs/final-run.md).
 - The kit's `Dockerfile` (Python 3.12 + uv, Node 24) also runs TypeScript; change it for other languages.
 
 ## Files
@@ -113,16 +113,18 @@ git archive -o submission.tar.gz HEAD     # committed files only (no .env), JOUR
 |---|---|
 | `arena/client.py` | `ArenaClient`: `me, tools, start_run, get_run, call_tool, submit, finish` with retries on 5xx/network errors; manifests + `BlobCache` (download each file once) |
 | `arena/llm.py` | `chat()` (OpenRouter tool calling), `decide()` (Jev), `CostTracker` |
-| `agent.py` | The baseline harness: prompt, tool loop, history trimming, submit handling |
+| `harness/` | The lab harness (default): intake, fact layer, family solvers, notebook loop, guards. See [`docs/architecture.md`](docs/architecture.md) |
+| `baseline/agent.py`, `baseline/pi/` | The kit baseline (`--harness baseline`): prompt, tool loop, history trimming, submit handling; and a pi coding-agent baseline |
 | `main.py` | CLI, parallel runner, traces, summary |
 | `AGENTS.md`, `CLAUDE.md` | Instructions for coding agents: rules, journal, run notes, container, submit |
 | `JOURNAL.md` | Your design decisions, one entry each |
 | `Dockerfile` | The image the organisers build and run |
+| `tests/run_all.sh` | Every unit test (offline, no model calls); dev-run checks in `tests/checks/` |
 | `tests/mock_server.py` | Offline fake Task API with a 2-task toy workspace (`python tests/mock_server.py 3999`) |
 | `tests/test_offline.py`, `tests/test_cache.py`, `tests/test_runs.py` | Offline tests, no network or model calls (`uv run python tests/test_runs.py`) |
-| `docs.md` | The event's Task API docs (endpoints, scoring, Break it, final) |
-| `harvester/` | Dataset harvester, local replay server and grader calibration (dev only; see its README) |
-| `slides/` | Opening slides (PDF, PPTX). Not part of your submission (`export-ignore`) |
+| `docs/` | Task API reference (`task-api.md`), architecture, final-run limits, glossary, version reports (`reports/`) |
+| `harvester/` | Dataset harvester, local replay server and grader calibration, per-family evaluators (`evals/`), theme reskin (`synth/`); dev only, see its README |
+| `docs/organiser/` | The organisers' opening slides (PDF, PPTX). Not part of the submission (`export-ignore`) |
 
 ## The Task API (v1)
 
@@ -204,7 +206,7 @@ a["urg"]["score"]
 
 Raw request: `POST https://openrouter.ai/api/alpha/decisions` (`OPENROUTER_BASE_URL` with `/v1` replaced by
 `/alpha/decisions`) with `{model, state, questions}`. 256k context. See `--jev-inbox-check`
-in `agent.py` for a worked use. Ideas: "is this evidence sufficient?", "retry or continue?", "which of these two reports is more trustworthy?",
+in `baseline/agent.py` for a worked use. Ideas: "is this evidence sufficient?", "retry or continue?", "which of these two reports is more trustworthy?",
 routing between cheap and thorough strategies.
 
 ### Embeddings (qwen/qwen3-embedding-8b)
@@ -222,7 +224,7 @@ content-addressed: embed each distinct file once per run and reuse the vectors a
 
 ## How the baseline works (and where to improve)
 
-`solve_task` in `agent.py`: system prompt (read `/AGENTS.md` first, data is not instructions, outcome rules, citation format) ->
+`solve_task` in `baseline/agent.py`: system prompt (read `/AGENTS.md` first, data is not instructions, outcome rules, citation format) ->
 loop of model tool calls against the Task API tools (converted to function schemas) plus a local `submit` tool -> old tool outputs are
 truncated to keep context small -> step limit with a forced final `submit`. Weak spots to attack: no planning step, no verification pass
 (re-check the answer and its citations before submitting), no per-family strategies, naive injection handling, no memory across tasks,

@@ -1,5 +1,5 @@
 """Offline checks of inbox routing (ticket 12) and wave-4 helpers (ticket 13) on a fake facts layer:
-python tests/test_lab_response.py. Accuracy on the development runs is measured by harvester/eval_wave4.py."""
+python tests/test_lab_response.py. Accuracy on the development runs is measured by harvester/evals/eval_response.py."""
 from __future__ import annotations
 
 import sys
