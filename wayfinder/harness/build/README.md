@@ -20,6 +20,7 @@ From [SPEC.md](../SPEC.md). Frontier: tickets whose blockers are all done. Measu
 | 14 | [Wave 5 helpers and code-only cut-offs](14-wave-5-helpers.md) | 06, 09 |
 | 15 | [Held-out milestone](15-held-out-milestone.md) | 03, 11, 12, 13, 14 |
 | 16 | [Wrap-up: clean code, tidy repo, docs, presentation, article](16-wrap-up-docs-presentation.md) (done) | 15 |
+| 17 | [v2: find workspace files by role, not by path](17-v2-files-by-role.md) | 16 |
 
 ## Module renames (ticket 16, 2026-11-21)
 
