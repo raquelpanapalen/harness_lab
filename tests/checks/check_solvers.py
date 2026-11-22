@@ -2,7 +2,7 @@
 tasks with a stand-in ctx (real Jev / Gemma through the same pacer interface), and the replay grader scores the
 draft (answer, outcome, citations). Evaluation only: reads harvester/data. Held-out runs skipped.
 
-    uv run tests/checks/check_solvers.py [--runs N] [--family F] [-v]
+    uv run tests/checks/check_solvers.py [--runs N] [--family F] [--data harvester/data/synth/layout-dev] [-v]
 
 Families are recognised here by request patterns (the harness uses intake's Jev family). Per family: tasks, how
 often the solver was confident, mean Score of confident drafts, and the mean Score the family would get if every
@@ -38,13 +38,13 @@ FAMILY_RX = {
     "patient_zero": re.compile(r"entry point", re.I),
     "timeline": re.compile(r"\bA: .*\bB: ", re.S),
     "leaked_tokens": re.compile(r"token ids leaked|leaked in full|value leaked", re.I),
-    "access_log": re.compile(r"/logs/access/requests", re.I),
-    "access_review": re.compile(r"pending_access_requests", re.I),
+    "access_log": re.compile(r"/logs/(?:access|requests)/requests", re.I),     # hub | layout reskin
+    "access_review": re.compile(r"pending_access_requests|access_queue", re.I),
     "delegation_chain": re.compile(r"shortest delegation chain", re.I),
     "lethal_trifecta": re.compile(r"lethal trifecta", re.I),
     "dpa_deadline": re.compile(r"processing agreement", re.I),
     "status_claims": re.compile(r"/reports/status/", re.I),
-    "mcp_audit": re.compile(r"/integrations/mcp/", re.I),
+    "mcp_audit": re.compile(r"/(?:integrations|connectors)/mcp/", re.I),
     "canaries": re.compile(r"canar", re.I),
     "containment": re.compile(r"^(?:\W*)(?:contain\b|full containment|please do the containment|containment for)", re.I),
     "board_injected": re.compile(r"injected board posts|board are injected|(?:posts|message id).*(?:instruct|tells) agents", re.I),
@@ -118,10 +118,12 @@ def main() -> int:
     scores = collections.defaultdict(list)
     bad = []
     t0 = time.time()
-    runs = dev_runs()[:n] if n else dev_runs()
+    data = Path(args[args.index("--data") + 1]) if "--data" in args else DATA   # e.g. a reskinned dev data dir
+    pool = dev_runs() if data == DATA else sorted(r for r in (data / "runs").iterdir() if (r / "revealed.json").exists())
+    runs = pool[:n] if n else pool
     if "--run-ids" in args:                       # re-check named runs only (comma-separated)
         want = set(args[args.index("--run-ids") + 1].split(","))
-        runs = [r for r in dev_runs() if r.name in want]
+        runs = [r for r in pool if r.name in want]
     progress = progress_logger()
     for i_run, rdir in enumerate(runs, 1):
         t_run, n_before = time.time(), sum(s["n"] for s in stats.values())
@@ -135,6 +137,8 @@ def main() -> int:
         manifest = json.loads((rdir / "manifest.json").read_text())
         files = {t["task_id"]: t["files"] for t in manifest["tasks"]}
         intel = json.loads((rdir / "intel.json").read_text()) if (rdir / "intel.json").exists() else {}
+        # a reskinned run maps its renamed files to their hub roles for the grader (as the replay server does)
+        synth = json.loads((rdir / "synth.json").read_text()) if (rdir / "synth.json").exists() else {}
         for t in json.loads((rdir / "revealed.json").read_text())["tasks"]:
             req = t.get("request") or t["instruction"]
             fam = family_of(req)
@@ -167,7 +171,8 @@ def main() -> int:
                 scores[fam].append(0.0)
                 continue
             stats[fam]["confident"] += 1
-            ws = T.Workspace(files[t["task_id"]], DATA / "blobs", {}, intel)
+            ws = T.Workspace(files[t["task_id"]], data / "blobs" if (data / "blobs").exists() else DATA / "blobs", {},
+                             intel, canon=synth.get("canon"), token_prefix=synth.get("token_prefix", "TOK"))
             sub = {k: v for k, v in rec.draft.items() if k != "actions"}
             g = grade(t, sub, ws)
             scores[fam].append(g["score"])

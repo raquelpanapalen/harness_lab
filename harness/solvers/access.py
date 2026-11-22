@@ -17,7 +17,7 @@ from ..facts.decode import reveal
 from ..facts.runbook import Facts, parse_local
 from ..index import Unit
 from ..state import TaskRecord
-from . import Precondition, Solution, note, register
+from . import Precondition, Solution, note, register, request_of
 
 PATH_RX = re.compile(r"(/[\w./-]+\.\w+)")
 
@@ -83,7 +83,7 @@ def _leak_texts(f: Facts, request: str, fp_path: str) -> list[tuple[str, list[Un
     request mentions it, the agents board."""
     paths = [p for p in PATH_RX.findall(request or "") if p != fp_path and f.v.doc(p) is not None]
     if re.search(r"\bboard\b", request or "", re.I):
-        paths += [p for p in f.v.paths() if p.startswith("/board/")]
+        paths += f.roles.board
     if not paths:
         paths = [p for p in f.v.paths() if re.search(r"paste|dump|leak", p, re.I)]
     return [(p, f.v.units(p)) for p in dict.fromkeys(paths)]
@@ -93,8 +93,8 @@ def _leak_texts(f: Facts, request: str, fp_path: str) -> list[tuple[str, list[Un
 def leaked_tokens(ctx: Any, rec: TaskRecord, facts) -> Solution:
     _list_shape(rec)
     f: Facts = facts(())
-    fp_path, fp = _fingerprints(f, rec.request or rec.instruction)
-    texts = _leak_texts(f, rec.request or rec.instruction, fp_path)
+    fp_path, fp = _fingerprints(f, request_of(rec))
+    texts = _leak_texts(f, request_of(rec), fp_path)
     if not texts:
         raise Precondition("no leaked material found")
     hits: dict[str, list[Unit]] = {}
@@ -217,14 +217,14 @@ def violations(f: Facts, log_path: str, pol: dict) -> tuple[list[tuple[str, Unit
 def access_log(ctx: Any, rec: TaskRecord, facts) -> Solution:
     _list_shape(rec)
     f: Facts = facts(())
-    req = rec.request or rec.instruction
+    req = request_of(rec)
     named = PATH_RX.findall(req)
-    pol_path = next((p for p in named if re.search(r"polic", p, re.I)), None) or \
-        next((p for p in f.v.paths() if p.startswith("/logs/access/") and re.search(r"polic", p, re.I)), None)
-    log_path = next((p for p in named if p.endswith(".csv") and p != pol_path), None) or \
-        next((p for p in f.v.paths() if p.startswith("/logs/access/") and "request" in p.lower()), None)
+    # the files the request names, else the ones whose content is an access-log policy / request log (roles)
+    pol_path = next((p for p in named if p in f.roles.all("access_log_policy")), None) or \
+        f.roles.one("access_log_policy")
+    log_path = next((p for p in named if p in f.roles.all("access_log")), None) or f.roles.one("access_log")
     if not pol_path or not log_path or f.text(pol_path) is None:
-        raise Precondition("access-log policy or request log not found")
+        raise Precondition("access-log policy or request log not found (or several)")
     pol = parse_access_policy(f.text(pol_path))
     viol, regs = violations(f, log_path, pol)
     answer = sorted({rid for rid, _ in viol})
@@ -342,7 +342,7 @@ def _class_scope(f: Facts, g: dict, agent: str, cls: dict[str, str], k: str) -> 
 @register("lethal_trifecta")
 def lethal_trifecta(ctx: Any, rec: TaskRecord, facts) -> Solution:
     _list_shape(rec)
-    req = rec.request or rec.instruction
+    req = request_of(rec)
     current = _current(req)
     f: Facts = facts(())
     cls = scope_classes(f)
@@ -382,7 +382,7 @@ def shortest_chain(g: dict, start: str, scope: str) -> list[str]:
 @register("delegation_chain")
 def delegation_chain(ctx: Any, rec: TaskRecord, facts) -> Solution:
     _list_shape(rec)
-    req = rec.request or rec.instruction
+    req = request_of(rec)
     f: Facts = facts(())
     reg = f.registry().value or {}
     scopes = set((reg.get("scope_classes") or {}))
@@ -420,13 +420,15 @@ OWNER_COLS = ("owner", "owner_person", "responsible", "owner_name")
 def access_review(ctx: Any, rec: TaskRecord, facts) -> Solution:
     if rec.answer_shape not in ("object", "unknown"):
         raise Precondition(f"answer shape {rec.answer_shape}, expected an object")
-    req = rec.request or rec.instruction
+    req = request_of(rec)
     f: Facts = facts(("artifacts",))
     named = PATH_RX.findall(req)
-    pend = next((p for p in named if p.endswith(".csv")), None) or \
-        next((p for p in f.v.paths() if "pending" in p.lower() and p.endswith(".csv")), None)
-    pol_path = next((p for p in named if p.endswith(".md")), None) or \
-        next((p for p in f.v.paths() if p.startswith("/fleet/") and "access_policy" in p.lower()), None)
+    # the files the request names, else by role: the pending-requests csv and the policy text that refers to it
+    pend = next((p for p in named if p in f.roles.all("pending_access")), None) or f.roles.one("pending_access")
+    pol_path = next((p for p in named if p.endswith((".md", ".txt"))), None)
+    if pol_path is None and pend:
+        cands = f.roles.mentioning(pend)
+        pol_path = cands[0] if len(cands) == 1 else None
     pol = (f.text(pol_path) or "").lower() if pol_path else ""
     if not pend or not pol:
         raise Precondition("pending requests or access policy not found")

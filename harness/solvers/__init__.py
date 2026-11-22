@@ -60,6 +60,12 @@ def _load() -> None:
             importlib.import_module(f"{__name__}.{m.name}")
 
 
+def request_of(rec: TaskRecord) -> str:
+    """The request as one line: photo-ticket transcripts and text tickets keep their printout's line breaks
+    ("block every\nattacker domain"), and the solvers match phrases, so whitespace runs become single spaces."""
+    return " ".join((rec.request or rec.instruction or "").split())
+
+
 def note(fact: str, units: list[Unit | dict | None]) -> dict:
     """A loop note backed by evidence units or citation dicts (handle-less notes are dropped by the loop)."""
     return {"fact": fact, "sources": [u.source() if isinstance(u, Unit) else u for u in units if u]}

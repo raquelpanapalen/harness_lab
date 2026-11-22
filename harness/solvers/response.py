@@ -173,7 +173,9 @@ def canaries(f, request: str) -> Result:
     if not p or ex.value is None:
         return r.fail("canary list or exfiltration facts missing")
     rows = f.csv_rows(p)
-    ids = {str(next(iter(row.values()), "")).strip() for row in rows}
+    ids = {str(next(iter(row.values()), "")).strip() for row in rows} - {""}
+    if not ids:
+        return r.fail(f"canary list {p} is empty")
     hit = sorted(ids & set(ex.value["record_ids"]))
     r.answer = hit
     r.units = [u for c in hit if (u := f.v.find({"path": p, "record": c}))]
@@ -274,7 +276,7 @@ def breach_notification(f, request: str, allow: list[str]) -> Result:
     """The runbook's notification template, filled from the facts, sent to the DPO; the answer is the record count."""
     r = Result()
     st, ex = _exfil(f)
-    rb = f.text("/runbook.md") or ""
+    rb = f.text(f.roles.runbook) or "" if f.roles.runbook else ""
     m = re.search(r"(?ims)^#+[^\n]*notification[^\n]*\n(.*?)(?=^#+ |\Z)", rb)
     tmpl = [ln.strip() for ln in (m.group(1) if m else "").splitlines()
             if re.match(r"^[a-z_ ]+:\s", ln.strip()) and not ln.strip().lower().startswith("no ")]
@@ -465,7 +467,9 @@ def partner_draft(f, request: str, allow: list[str]) -> Result:
     ]) + "\n"
     if "write" in allow:
         r.actions = [{"tool": "write", "args": {"path": path, "content": content}}]
-    notes = next((p for p in f.v.paths() if p.startswith("/notes/") and "internal_notes" in p), None)
+    # the internal notes the request names (any readable file it names besides the draft itself)
+    notes = next((p for p in re.findall(r"(/[\w./-]+\.\w+)", request) if p != path and p in f.v.files
+                  and not p.startswith("/drafts/")), None)
     r.answer = path
     # citations (dev sweep, validated on unseen runs: 178/178 hits): every counting transfer, plus the internal-notes
     # lines that state a fact the draft repeats (record count, a destination domain, the time, patient zero)

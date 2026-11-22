@@ -39,9 +39,9 @@ def needed(probe: Facts, need: tuple[str, ...]) -> list[str]:
     if "artifacts" in need:
         keys += [k for a in probe.artifacts().value.values() for k in a["missing"]]
     if "settings" in need:
-        m = re.search(r"signed\s+standing\s+order\s+\((/[^)\s,]+)", probe.text("/runbook.md") or "")
-        if m:
-            keys.append(m.group(1))
+        order = probe.roles.signed_order   # the signed sheet an operator file names (harness/roles.py)
+        if order:
+            keys.append(order)
     return list(dict.fromkeys(keys))
 
 

@@ -14,7 +14,7 @@ from arena import llm
 
 from ..facts.runbook import Fact, Facts, Settings, parse_local
 from ..state import TaskRecord
-from . import Precondition, Solution, note, register
+from . import Precondition, Solution, note, register, request_of
 
 
 def _fact_solution(fact: Fact, answer: Any, sources: list[dict], notes: list[dict], why: str = "") -> Solution:
@@ -44,7 +44,7 @@ def requested_keys(request: str) -> list[str]:
 
 @register("patient_zero")
 def patient_zero(ctx: Any, rec: TaskRecord, facts) -> Solution:
-    keys = requested_keys(rec.request or rec.instruction)
+    keys = requested_keys(request_of(rec))
     roles = {}
     for k in keys:
         low = k.lower()
@@ -185,14 +185,13 @@ def board_unit(f: Facts, msg_id: str):
     """The board's own line for a message id (the post itself is the evidence, not the gateway event)."""
     if not msg_id:
         return None
-    for p in f.v.paths():
-        if p.startswith("/board/") and p.endswith(".jsonl"):
-            for u in f.v.units(p)[1:]:
-                try:
-                    if json.loads(u.text).get("id") == msg_id:
-                        return u
-                except ValueError:
-                    continue
+    for p in f.roles.board:
+        for u in f.v.units(p)[1:]:
+            try:
+                if json.loads(u.text).get("id") == msg_id:
+                    return u
+            except ValueError:
+                continue
     return None
 
 
@@ -229,7 +228,7 @@ def siem_time(f: Facts, text: str) -> tuple[str | None, list, str]:
 
 @register("timeline")
 def timeline(ctx: Any, rec: TaskRecord, facts) -> Solution:
-    events = lettered_events(rec.request or rec.instruction)
+    events = lettered_events(request_of(rec))
     kinds = classify_events(ctx, rec, events)
     f: Facts = facts(("artifacts",))
     times, srcs, notes, problems = {}, [], [], []

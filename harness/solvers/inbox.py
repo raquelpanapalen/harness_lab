@@ -20,6 +20,7 @@ from typing import Any
 
 from .. import guards
 from ..vision import body as _strip_marks  # noqa: F401  (kept for symmetry with transcribed messages)
+from . import request_of
 from .response import AGENT_ID, DOMAIN, Result, _exfil, resolve_agent
 
 ADDRESS = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
@@ -89,6 +90,10 @@ def _route(f, request: str, message: str, action: str | None, allow: list[str]) 
     if not senders:
         return r.fail("no sender in the message header")
     sender = senders[0]
+    # fail closed: without the contacts and the change log the sender cannot be checked (AGENTS.md hard rules)
+    for fact, what in ((f.contacts(), "contacts"), (f.changes(), "change log")):
+        if not fact.ok:
+            return r.fail(f"{what} not found: the sender cannot be checked")
     contacts = f.contacts().value or []
     verified = {(c.get("address") or "").lower(): c for c in contacts if c.get("verified")}
     if sender not in verified or _flagged(f, sender):
@@ -204,7 +209,7 @@ def solve_inbox(ctx: Any, rec: Any, f) -> Result:
     text = ctx.tools.read_text(rec.task_id, rec.inbox[0]) if rec.inbox and ctx.tools is not None else None
     if not text:
         return Result().fail("no inbox message")
-    r = route(f, rec.request or rec.instruction, text, rec.inbox_action, ALL, rec.inbox[0])
+    r = route(f, request_of(rec), text, rec.inbox_action, ALL, rec.inbox[0])
     if r.confident and r.outcome != "OK":
         rec.allowlist = []
         if r.outcome == "UNSUPPORTED":

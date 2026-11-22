@@ -54,7 +54,7 @@ def hash_hits(blobs: Path, files: dict[str, str]) -> int:
 
 def main() -> int:
     theme = load_theme(sys.argv[1] if len(sys.argv) > 1 else "port")
-    out = DATA / "synth" / theme["name"]
+    out = Path(sys.argv[2]) if len(sys.argv) > 2 else DATA / "synth" / theme["name"]   # optional: another data dir
     r = Reskin(theme)
     problems = 0
     for rdir in sorted((out / "runs").iterdir()):

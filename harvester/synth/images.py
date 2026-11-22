@@ -120,7 +120,10 @@ def with_request(transcript: str, request: str) -> str:
 # --- drawing ---------------------------------------------------------------------------------------------------------
 def _font(kind: str, size: int):
     from PIL import ImageFont
-    return ImageFont.truetype(str(FONT_DIR / FONTS[kind]), size)
+    path = FONT_DIR / FONTS[kind]
+    if path.exists():
+        return ImageFont.truetype(str(path), size)
+    return ImageFont.load_default(size)  # no Noto here (e.g. macOS): Pillow's built-in scalable font
 
 
 def render(transcript: str, ext: str, seed: str) -> bytes:

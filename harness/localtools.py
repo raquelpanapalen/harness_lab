@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 from .index import TEXT_EXT, TaskView, ext
+from .roles import LOCAL_TIME, roles_of
 
 LOCAL_TOOLS = {"tree", "list", "read", "search", "query_logs"}
 FORMAT = {"md": "markdown", "txt": "text", "jsonl": "text", "json": "json", "csv": "csv", "html": "html"}
@@ -22,10 +23,9 @@ HIT_CHARS = 240
 MAX_READ = 400
 ARCHIVE_TZ = ZoneInfo("Europe/Vienna")  # the CET archive's `time_local` (the server converts it to UTC)
 
-# The platform searches files in its generator's order, not alphabetically (observed on recorded searches).
-SEARCH_FIRST = ["/AGENTS.md", "/runbook.md", "/standing_order.md", "/contacts.csv", "/fleet/agents.csv",
-                "/fleet/registry_export.json", "/fleet/changes.md", "/fleet/tokens.csv", "/logs/audit/",
-                "/logs/archive/", "/board/", "/fleet/token_fingerprints.csv"]
+# The platform searches files in its generator's order, not alphabetically (observed on recorded searches): the
+# operator files, the typed standing order, contacts, roster, registry, change log, token inventory, then the audit
+# log, the archive and the board directories, then the fingerprints. The files are found by role (harness/roles.py).
 
 _JS_REGEX_ERRORS = [("unterminated character set", "Unterminated character class"),
                     ("missing ), unterminated subpattern", "Unterminated group"),
@@ -64,11 +64,13 @@ def parse_ts(s) -> datetime | None:
     return (d if d.tzinfo else d.replace(tzinfo=timezone.utc)).astimezone(timezone.utc)
 
 
-def _search_rank(path: str) -> tuple:
-    for i, pre in enumerate(SEARCH_FIRST):
-        if path == pre or (pre.endswith("/") and path.startswith(pre)):
-            return (i, path)
-    return (len(SEARCH_FIRST), path)
+def _search_rank(first: list[str]):
+    def rank(path: str) -> tuple:
+        for i, pre in enumerate(first):
+            if path == pre or (pre.endswith("/") and path.startswith(pre)):
+                return (i, path)
+        return (len(first), path)
+    return rank
 
 
 class LocalTools:
@@ -185,7 +187,7 @@ class LocalTools:
         scope = norm_path(path)
         hits: list[dict] = []
         total = skipped = 0
-        for p in sorted(self.v.paths(), key=_search_rank):
+        for p in sorted(self.v.paths(), key=_search_rank(roles_of(self.v).search_order())):
             if not (p == scope or scope == "/" or p.startswith(scope + "/")):
                 continue
             if ext(p) not in TEXT_EXT:
@@ -206,24 +208,28 @@ class LocalTools:
         return out
 
     def events(self) -> list[dict]:
-        """Audit-log events (jsonl under /logs/audit/) and the CET archive (csv under /logs/archive/), in time order."""
+        """Audit-log events (jsonl) and the rotated local-time archive (csv), in time order (files found by role)."""
         ev = []
-        for p in self.v.paths():
-            if p.startswith("/logs/audit/") and ext(p) == "jsonl":
+        r = roles_of(self.v)
+        archive = set(r.archive)
+        for p in sorted(set(r.audit) | archive):
+            if p not in archive:
                 for i, line in enumerate(self._lines(p), 1):
                     try:
                         e = json.loads(line)
                     except ValueError:
                         continue
                     ev.append({"file": p, "line": i, **e, "ts": e.get("ts"), "_raw": line})
-            elif p.startswith("/logs/archive/") and ext(p) == "csv":
+            else:
                 rows = list(csv.reader(io.StringIO("\n".join(self._lines(p)))))
                 if not rows:
                     continue
                 head = rows[0]
+                tcol = next((h for j, h in enumerate(head) if any(
+                    j < len(r_) and LOCAL_TIME.match(r_[j].strip()) for r_ in rows[1:6])), None)
                 for i, row in enumerate(rows[1:], 2):
                     rec = {k: v for k, v in zip(head, row) if v != ""}
-                    local = rec.pop("time_local", None)
+                    local = rec.pop(tcol, None) if tcol else None
                     try:
                         ts = datetime.strptime(local, "%d.%m.%Y %H:%M:%S").replace(tzinfo=ARCHIVE_TZ) \
                             .astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")

@@ -132,13 +132,67 @@ def ticket_status(text: str) -> str | None:
     return m.group(1).lower() if m else None
 
 
+_DIR = re.compile(r"(/[\w.-]+(?:/[\w.-]+)*)/?")
+_TICKET_WORD = re.compile(r"\bticket|\bqueue\b", re.I)
+
+
+def _dirs(text: str, paths: list[str]) -> list[str]:
+    """Directories `text` names (`/queue/`, or the folder of a file it names), as `/dir/`, in order."""
+    out = []
+    for m in _DIR.findall(text or ""):
+        m = m.rstrip("./")
+        d = m if any(p.startswith(m + "/") for p in paths) else m.rsplit("/", 1)[0] if m in paths else None
+        if d and d + "/" not in out:
+            out.append(d + "/")
+    return out
+
+
+def _texts(d: str, paths: list[str]) -> list[str]:
+    return sorted(p for p in paths if p.startswith(d) and p.lower().endswith(_TEXT_EXT))
+
+
+def _is_queue(d: str, paths: list[str], read: Callable[[str], str], photos: bool) -> bool:
+    """A ticket queue holds tickets and no mail: text files whose status is open or closed, or (`photos`: the
+    instruction speaks of a ticket or the queue) photos of printouts, whose status is a stamp."""
+    texts = _texts(d, paths)
+    if any("from" in front_matter(read(p))[0] for p in texts[:20]):
+        return False
+    if any(ticket_status(read(p)) in ("open", "closed") for p in texts):
+        return True
+    return photos and any(p.startswith(d) and p.lower().endswith(_IMAGE_EXT) for p in paths)
+
+
+def ticket_queue(instruction: str, paths: list[str], read: Callable[[str], str]) -> str | None:
+    """The queue the instruction sends us to: a ticket directory it names, else (when it speaks of a ticket or the
+    queue) the ticket queue /AGENTS.md names. Found by content (tickets), never by the directory's name."""
+    about_ticket = bool(_TICKET_WORD.search(instruction or ""))
+    named = [d for d in _dirs(instruction, paths) if _is_queue(d, paths, read, about_ticket)]
+    if named:
+        return named[0]
+    if not about_ticket or "/AGENTS.md" not in paths:
+        return None
+    sents = [x for x in re.split(r"(?<=[.!?])\s+", read("/AGENTS.md")) if _TICKET_WORD.search(x)]
+    cands = [d for x in sents for d in _dirs(x, paths) if _is_queue(d, paths, read, True)]
+    return cands[0] if len(set(cands)) == 1 else None
+
+
+def inbox_dir(text: str, paths: list[str], read: Callable[[str], str]) -> str | None:
+    """The inbox the request hands us: a directory it names whose text files are mail (a `from:` header)."""
+    for d in _dirs(text, paths):
+        if any("from" in front_matter(read(p))[0] for p in _texts(d, paths)):
+            return d
+    return None
+
+
 def resolve_request(instruction: str, paths: list[str], read: Callable[[str], str],
                     transcribe: Callable[[str], str] | None = None) -> Request:
     """The text that says what to do. `paths` are the task's workspace paths; `read(path)` returns a text file;
-    `transcribe(path)` (optional, build ticket 08) the text of an image."""
+    `transcribe(path)` (optional, build ticket 08) the text of an image. A queue whose open ticket is not found
+    leaves the request empty: intake then classifies nothing (family 'other'), never the bare instruction."""
     req = Request(text=instruction)
-    if "/tickets/" in instruction:
-        tickets = sorted(p for p in paths if p.startswith("/tickets/"))
+    queue = ticket_queue(instruction, paths, read)
+    if queue:
+        tickets = sorted(p for p in paths if p.startswith(queue))
         images = [p for p in tickets if p.lower().endswith(_IMAGE_EXT)]
         for p in [p for p in tickets if p.lower().endswith(_TEXT_EXT)] + (images if transcribe else []):
             if p in images:  # a photo of the printout: the status is a stamp (build ticket 08)
@@ -152,8 +206,9 @@ def resolve_request(instruction: str, paths: list[str], read: Callable[[str], st
                 break
         else:
             req = Request(text=None, via="ticket", unread_images=[] if transcribe else images)
-    if req.text and "/inbox/" in req.text:
-        for p in sorted(p for p in paths if p.startswith("/inbox/") and p.lower().endswith(_TEXT_EXT)):
+    box = inbox_dir(req.text, paths, read) if req.text else None
+    if box:
+        for p in _texts(box, paths):
             req.messages[p] = read(p)
         if req.messages and req.via == "instruction":
             req.via, req.source = "inbox", next(iter(req.messages))

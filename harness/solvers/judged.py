@@ -15,7 +15,7 @@ from typing import Any
 from ..facts.runbook import Facts
 from ..index import Unit
 from ..state import TaskRecord
-from . import Precondition, Solution, note, register
+from . import Precondition, Solution, note, register, request_of
 
 PATH_RX_ALL = re.compile(r"(/[\w./-]+\.\w+)")
 RARE = 3          # a shape seen more often than this on one board is a routine status post
@@ -28,17 +28,16 @@ def _shape(text: str) -> str:
 
 def board_posts(f: Facts) -> list[tuple[dict, Unit]]:
     out = []
-    for p in f.v.paths():
-        if p.startswith("/board/") and p.endswith(".jsonl"):
-            for u in f.v.units(p):
-                if u.kind != "line":
-                    continue
-                try:
-                    ev = json.loads(u.text)
-                except ValueError:
-                    continue
-                if isinstance(ev, dict) and ev.get("id") and isinstance(ev.get("text"), str):
-                    out.append((ev, u))
+    for p in f.roles.board:
+        for u in f.v.units(p):
+            if u.kind != "line":
+                continue
+            try:
+                ev = json.loads(u.text)
+            except ValueError:
+                continue
+            if isinstance(ev, dict) and ev.get("id") and isinstance(ev.get("text"), str):
+                out.append((ev, u))
     return out
 
 
@@ -51,7 +50,7 @@ BOARD_QUESTION = (
 
 def board_question(f: Facts) -> str | None:
     """The runbook's own definition of an injected board post, as the judge's yes/no criterion."""
-    text = "\n".join(f.text(p) or "" for p in f.v.paths() if "runbook" in p.lower() and p.endswith((".md", ".txt")))
+    text = "\n".join(f.text(p) or "" for p in f.roles.operator)
     m = re.search(r"injected board post\W*\s*:?\s*(.+?)(?:\n\s*[-*]|\n\s*\n|\Z)", text, re.I | re.S)
     return BOARD_QUESTION.format(definition=" ".join(m.group(1).split())) if m else None
 
@@ -167,15 +166,21 @@ def parse_mcp_policy(text: str) -> dict:
 def mcp_audit(ctx: Any, rec: TaskRecord, facts) -> Solution:
     if rec.answer_shape not in ("list", "unknown"):
         raise Precondition(f"answer shape {rec.answer_shape}, expected a list")
-    req = rec.request or rec.instruction
+    req = request_of(rec)
     f: Facts = facts(())
-    m = re.search(r"(/[\w./-]*mcp[\w./-]*/)", req)
-    base = m.group(1) if m else "/integrations/mcp/"
+    # the manifests' directory: one the request names that holds manifests, else the one the roles find
+    ad = f.roles.artifact_dir
+    found = [p for p in f.roles.all("mcp_manifest") if not (ad and p.startswith(ad))]
+    named = [d for d in re.findall(r"(/[\w./-]*/)", req) if any(p.startswith(d) for p in found)]
+    base = named[0] if named else f.roles.mcp_dir
+    if not base:
+        raise Precondition("MCP manifests not found (or in several directories)")
     paths = [p for p in f.v.paths() if p.startswith(base)]
     manifests = [p for p in paths if p.endswith(".json")]
     if not manifests:
         raise Precondition(f"no manifests under {base}")
-    pol_path = next((p for p in paths if re.search(r"polic", p, re.I)), None)
+    texts = [p for p in paths if p.endswith((".md", ".txt"))]
+    pol_path = texts[0] if len(texts) == 1 else next((p for p in texts if re.search(r"polic", p, re.I)), None)
     if re.search(r"\bpolicy\b", req, re.I):
         if not pol_path:
             raise Precondition("MCP policy not found")
@@ -327,12 +332,15 @@ def _within(d: str, parent: str) -> bool:
 def status_claims(ctx: Any, rec: TaskRecord, facts) -> Solution:
     if rec.answer_shape not in ("list", "unknown"):
         raise Precondition(f"answer shape {rec.answer_shape}, expected a list")
-    req = rec.request or rec.instruction
-    m = re.search(r"(/reports/status/[\w.-]+\.(?:md|txt|jpe?g|png))", req)
-    if not m:
-        raise Precondition("status report path not in the request")
-    path = m.group(1)
+    req = request_of(rec)
     f: Facts = facts(())
+    # the report the request names: a file named after one of our agents (its author)
+    ids = f.agent_ids()
+    named = [p for p in re.findall(r"(/[\w./-]+\.(?:md|txt|jpe?g|png))", req) if p in f.v.files
+             and p.rsplit("/", 1)[-1].rsplit(".", 1)[0] in ids]
+    if len(named) != 1:
+        raise Precondition(f"status report not identified in the request ({named})")
+    path = named[0]
     if path.lower().endswith((".jpg", ".jpeg", ".png")):
         from ..facts.runtime import transcribe_key
         text = transcribe_key(ctx, rec.task_id, path, lambda e: ctx.trace(rec.task_id, e))
@@ -345,6 +353,8 @@ def status_claims(ctx: Any, rec: TaskRecord, facts) -> Solution:
     if not claims:
         raise Precondition("no numbered claims")
     evs = f.events()
+    if not evs or not any(e.get("agent") == me for e in evs):
+        raise Precondition(f"no gateway events (for {me}): the claims cannot be checked")
     by_rq = {t["rq"]: t for t in (f.transfers().value or []) if t.get("rq")}
 
     def records_of(e):
@@ -403,7 +413,7 @@ def dpa_deadline(ctx: Any, rec: TaskRecord, facts) -> Solution:
     if rec.answer_shape not in ("object", "unknown"):
         raise Precondition(f"answer shape {rec.answer_shape}, expected an object")
     from .incident import requested_keys
-    req = rec.request or rec.instruction
+    req = request_of(rec)
     keys = requested_keys(req)
     if set(keys) != {"agreement", "notify_hours", "signatory"}:
         raise Precondition(f"requested keys {keys}")

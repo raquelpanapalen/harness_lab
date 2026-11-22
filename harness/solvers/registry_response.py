@@ -10,7 +10,7 @@ from typing import Any
 
 from . import inbox as IB
 from . import response as W
-from . import Solution, note, register
+from . import Solution, note, register, request_of
 
 SETTINGS, ARTIFACTS, BOTH = ("settings",), ("artifacts",), ("artifacts", "settings")
 
@@ -29,7 +29,7 @@ def _solution(r: W.Result) -> Solution:
 
 
 def _req(rec: Any) -> str:
-    return rec.request or rec.instruction
+    return request_of(rec)
 
 
 @register("exfiltration")

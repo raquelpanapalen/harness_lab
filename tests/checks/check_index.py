@@ -39,7 +39,8 @@ class DiskClient:
         return json.loads((self.rdir / "manifest.json").read_text())
 
     def blob(self, run_id: str, sha: str, task_id: str | None = None) -> bytes:
-        return (DATA / "blobs" / sha).read_bytes()
+        own = self.rdir.parent.parent / "blobs" / sha    # a reskinned data dir has its own blob store
+        return (own if own.exists() else DATA / "blobs" / sha).read_bytes()
 
 
 def dev_runs() -> list[Path]:

@@ -13,7 +13,7 @@ applied; `problems` are what compose must fix in its one repair round. A blocked
   stand-in; rotate: inventory tokens only, at the code scheduler's time (change calendar + standing order);
   block: never our own or a verified partner's domain, only domains the request names or the attack reached;
   send_message: verified contacts only (a notification goes to the DPO's verified address); write: the path the task
-  names, under /drafts/.
+  names, under /drafts/. An inbox request's actions need the contacts and the change log to be found (fail closed).
 - **Frame guard:** an agent id that untrusted text in the workspace names stays in an answer or a quarantine only with
   trusted backing (a structured field of a cited or noted log event, a trusted file unit, or the computed compromised
   set). Unbacked ids are dropped from lists and quarantines; a single value is left as it is.
@@ -307,7 +307,11 @@ def check(ctx: Any, rec: Any, draft: dict) -> tuple[dict, list[str]]:
                             "verified and the target unambiguous. Use OK and carry out the request.")
             d = {"outcome": "OK", "answer": None, "sources": [], "actions": []}
 
-    # 2. actions
+    # 2. actions. Fail closed: an inbox request is carried out only when its sender could be checked against the
+    # contacts and the change log (AGENTS.md hard rules); without them no action leaves.
+    if rec.inbox and d.get("actions") and not (f is not None and _safe_ok(f, "contacts") and _safe_ok(f, "changes")):
+        problems.append("contacts or change log not found: the inbox sender cannot be checked, so nothing is done")
+        d["actions"] = []
     kept = []
     for a in d.get("actions") or []:
         a2, why = _guard_action(ctx, rec, a, f, roster, safe, rules, request)
@@ -349,7 +353,7 @@ def _safe_ok(f, name: str) -> bool:
 
 def _verify_refusal(ctx, rec, d, f, roster: set[str]) -> str | None:
     o = d["outcome"]
-    if o == "DENIED_SECURITY" and rec.inbox and f is not None:
+    if o == "DENIED_SECURITY" and rec.inbox and f is not None and _safe_ok(f, "contacts"):
         senders = _sender(ctx, rec)
         verified = {(c.get("address") or "").lower() for c in (f.contacts().value or []) if c.get("verified")}
         flagged = _flagged_text(f)
