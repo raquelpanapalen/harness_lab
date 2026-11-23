@@ -296,3 +296,10 @@ Format example (ignored: it sits in a code block). Write your entries below it, 
 - change: harvester/synth/themes/ward.json: Northmere Health (regional hospital group) vs Grayhollow's Mycelium-3; every port vocabulary entry gets a new value; new layout: /fleet→/staff, /board→/huddle, /logs/{audit,archive,access}→/records/{events,rotated,access}, /tickets→/worklist, /inbox→/mail, /artifacts→/isolation, /integrations→/plugins, /intel→/advisories, /reports→/briefs, /docs→/library, /ops→/facilities, /plans→/actions, /security→/infosec; 20 renamed files (runbook→protocol, standing order→duty order, ...); SEC- tokens, EVT- incidents; /AGENTS.md, /drafts/ and fake_ secrets kept (fixed by the Task API docs)
 - rejected: extending layout (its port vocabulary has been seen); reading any per-task result before the measurement
 - evidence: 5 held-out runs reskinned (0 new transcriptions, cached), check.py ALL OK; measurement next, aggregates only
+
+## 12:53 · v2 done: unseen ward theme 0.959; report, results, ticket 17 closed
+- decided_by: both        # the human agreed to tag after the clean hold-out and the write-up, merged into main first; the report's content was the AI's
+- why: ticket 17 asks for a clean hold-out on a theme nobody has looked at, a v2 report and updated results
+- change: docs/reports/v2.md (same structure as v1.md, with the remaining non-path assumptions listed), docs/results.md (four v2 rows), ticket 17 marked done
+- rejected: fixing the handover-by-name finder and the domain-as-URL loop answer before tagging (the tag must be the measured code; they are v2.1)
+- evidence: ward (54660d5, harness code = 51094fd) A 0.941/0.985/0.945/0.985/0.964, Score 0.959 at $0.032, L1 0.986 / L2 0.990 / L3 0.916, 240/240 submitted, constraints 1.00; aggregates read first, then per task: 2 of 240 tasks differ from hub v2 (rp003 t20 attacker-domain gap check 0.90 → 0.00: the loop listed the right domains as http:// URLs, which the guard defanged; rp001 t24 photo citation up); test_replay ALL PASSED, check_probes identical, unit tests + ruff pass

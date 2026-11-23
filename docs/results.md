@@ -27,6 +27,14 @@ last column) and the version reports in [`reports/`](reports/).
 | Held-out reskinned to `port` (new vocabulary) | `6b09b7d` harness | 5 held-out | 0.965 | $0.031 | 0.99 | 0.962 | 18:35 |
 | Held-out reskinned to `layout` (renamed files, ids) | `6b09b7d` harness | 1 of 5 | 0.258 | $0.17 | 0.60 | ≈ 0.21 | 18:35 |
 | After the ticket 16 restructure, rp001 | `c7f8f59` | 1 held-out | 0.938 | $0.052 | 0.98 | 0.931 | 19:30 |
+| **v2, held-out hub** (files by role) | `51094fd` | 5 held-out | 0.967 | $0.030 | 1.00 | **0.967** | 11-23 12:17 |
+| v2, held-out reskinned to `port` | `51094fd` | 5 held-out | 0.970 | $0.031 | 0.99 | 0.965 | 11-23 12:17 |
+| v2, held-out reskinned to `layout` | `51094fd` | 5 held-out | 0.971 | $0.031 | 0.99 | **0.968** | 11-23 12:17 |
+| **v2, new unseen theme `ward` (clean hold-out)** | `54660d5` | 5 held-out | 0.964 | $0.032 | 0.99 | **0.959** | 11-23 12:55 |
+
+v2 (build ticket 17, [`reports/v2.md`](reports/v2.md)) finds every workspace file by its content instead of its path,
+and learns token, incident and agent ids from the workspace: the layout reskin goes from ≈ 0.21 to 0.968 while hub
+and port hold. `ward` was written after the other v2 measurements and no per-task result was read before it ran.
 
 Event leaderboard for comparison: AIT 0.750 (A 0.751 at $0.049), Donaufriends 0.524.
 

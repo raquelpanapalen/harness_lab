@@ -6,7 +6,7 @@ reskin Score (0.962) while lifting the `layout` reskin from 0.258 to the same le
 
 **Blocked by:** 16
 
-**Status:** ready-for-agent
+**Status:** done (hub 0.967, port 0.965, layout 0.968, unseen `ward` 0.959: [docs/reports/v2.md](../../../docs/reports/v2.md))
 
 Spec: [SPEC.md](../SPEC.md) · Starting point: tag `v1.1` · Why: [docs/reports/v1.md](../../../docs/reports/v1.md) §3–5
 
@@ -72,7 +72,7 @@ Find them again with:
 
 ## Done when
 
-- [ ] No hard-coded workspace paths or id prefixes left in `harness/` except `/AGENTS.md` and `/drafts/`
-- [ ] All unit tests, `tests/test_imports.py`, ruff, `test_replay.py`, `check_probes.py` pass
-- [ ] Hub held-out Score ≥ 0.96, port ≥ 0.96, layout (all 5 runs) ≥ 0.93, new unseen theme reported; each ≤ $0.05 per run
-- [ ] `docs/reports/v2.md`, `docs/results.md`, JOURNAL updated; tag `v2`
+- [x] No hard-coded workspace paths or id prefixes left in `harness/` except `/AGENTS.md` and `/drafts/`
+- [x] All unit tests, `tests/test_imports.py`, ruff, `test_replay.py`, `check_probes.py` pass
+- [x] Hub held-out Score ≥ 0.96, port ≥ 0.96, layout (all 5 runs) ≥ 0.93, new unseen theme reported; each ≤ $0.05 per run
+- [x] `docs/reports/v2.md`, `docs/results.md`, JOURNAL updated; tag `v2`
