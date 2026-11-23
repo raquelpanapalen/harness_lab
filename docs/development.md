@@ -94,3 +94,4 @@ runs; they are evaluation tools, never part of the harness.
 | `tests/` | unit tests (`test_*.py`, `run_all.sh`), mock server, `checks/` (dev-run checks) |
 | `docs/` | task API reference, tasks, architecture, model roles, findings, results, final-run limits, glossary, `reports/`, organiser slides |
 | `wayfinder/harness/` | the design map: research tickets, decisions (`SPEC.md`), build tickets |
+| `research/` | the five pre-build research reports (baseline failures, task taxonomy, injection landscape, model capabilities, prior art), merged from their `research/*` branches |
