@@ -11,7 +11,6 @@ import json
 import math
 import re
 from datetime import datetime, timezone
-from zoneinfo import ZoneInfo
 
 from .index import TEXT_EXT, TaskView, ext
 from .roles import LOCAL_TIME, roles_of
@@ -21,7 +20,6 @@ FORMAT = {"md": "markdown", "txt": "text", "jsonl": "text", "json": "json", "csv
 TEXT_NAMES = "md, txt, html, csv, json"
 HIT_CHARS = 240
 MAX_READ = 400
-ARCHIVE_TZ = ZoneInfo("Europe/Vienna")  # the CET archive's `time_local` (the server converts it to UTC)
 
 # The platform searches files in its generator's order, not alphabetically (observed on recorded searches): the
 # operator files, the typed standing order, contacts, roster, registry, change log, token inventory, then the audit
@@ -212,6 +210,7 @@ class LocalTools:
         ev = []
         r = roles_of(self.v)
         archive = set(r.archive)
+        zone = r.local_zone()   # as the workspace states it (the archive's note, the runbook); None: not converted
         for p in sorted(set(r.audit) | archive):
             if p not in archive:
                 for i, line in enumerate(self._lines(p), 1):
@@ -231,8 +230,8 @@ class LocalTools:
                     rec = {k: v for k, v in zip(head, row) if v != ""}
                     local = rec.pop(tcol, None) if tcol else None
                     try:
-                        ts = datetime.strptime(local, "%d.%m.%Y %H:%M:%S").replace(tzinfo=ARCHIVE_TZ) \
-                            .astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+                        ts = datetime.strptime(local, "%d.%m.%Y %H:%M:%S").replace(tzinfo=zone) \
+                            .astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ") if zone else None
                     except (TypeError, ValueError):
                         ts = None
                     ev.append({"file": p, "line": i, "ts": ts, **rec, "_raw": ",".join(row)})

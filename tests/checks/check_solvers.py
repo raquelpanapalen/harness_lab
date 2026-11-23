@@ -46,6 +46,7 @@ FAMILY_RX = {
     "status_claims": re.compile(r"/reports/status/", re.I),
     "mcp_audit": re.compile(r"/(?:integrations|connectors)/mcp/", re.I),
     "canaries": re.compile(r"canar", re.I),
+    "token_status": re.compile(r"still valid|been revoked|still authenticate", re.I),
     "containment": re.compile(r"^(?:\W*)(?:contain\b|full containment|please do the containment|containment for)", re.I),
     "board_injected": re.compile(r"injected board posts|board are injected|(?:posts|message id).*(?:instruct|tells) agents", re.I),
 }

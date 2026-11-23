@@ -240,25 +240,57 @@ def first_token(f, request: str) -> Result:
     return _done(r, at)
 
 
+TS_RX = re.compile(r"\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2})?Z?|\d{1,2}\.\d{1,2}\.\d{4} \d{1,2}:\d{2}(?::\d{2})?")
+
+
+def tier2_revocations(f, tok: str) -> list[tuple[str, object]]:
+    """(UTC time, row) of security-tooling table rows (SIEM alerts and the like: csv / xlsx / ods, trusted rows only)
+    that record `tok` as revoked. Self-reports (status reports, board posts) are tier 3 and never read here."""
+    from ..facts.runbook import parse_local
+    from ..index import ext as ext_
+    out = []
+    ad = f.roles.artifact_dir
+    for p in f.v.paths():
+        if ext_(p) not in ("csv", "xlsx", "ods") or (ad and p.startswith(ad)):
+            continue
+        for u in f.v.units(p)[1:]:
+            if u.untrusted or not ids_in(u.text, [tok]) or not re.search(r"\brevok", u.text, re.I):
+                continue
+            ts = next((t for t in (parse_local(m) for m in TS_RX.findall(u.text)) if t), None)
+            if ts:
+                out.append((ts, u))
+    return sorted(out, key=lambda x: x[0])
+
+
 def token_status(f, request: str) -> Result:
-    """Revoked if a revocation of the token took effect (audit log), else valid as of its latest successful use."""
+    """Tier rule (AGENTS.md): a revocation in the audit log (tier 1), else one recorded by security tooling (tier 2,
+    e.g. a SIEM row "credential … revoked manually"); never a self-report. Revoked at the earliest such time, unless the
+    token still authenticated afterwards (tier 1 wins: then it is valid). Otherwise valid as of its latest successful
+    `auth_token` (null if none), cited by that event, or by the tier-2 handover's lines on the token when there is none."""
     r = Result()
     tok = next(iter(ids_in(request, f.token_ids())), None)
     if not tok:
         return r.fail("no token named")
-    evs = [e for e in f.events() if tok in str(e.get("target", ""))]
-    rev = sorted((e for e in evs if re.search(r"revoke", e.get("action", "")) and str(e.get("status")).lower()
-                  in ("ok", "success", "")), key=lambda e: e["ts"] or "")
-    if rev:
-        r.answer, r.units = {"status": "revoked", "at": rev[0]["ts"]}, [u for u in [f.ev_unit(rev[0])] if u]
-    else:
-        auth = sorted((e for e in evs if e.get("action") == "auth_token" and str(e.get("status")).lower() == "ok"),
-                      key=lambda e: e["ts"] or "")
+    evs = [e for e in f.events() if ids_in(str(e.get("target", "")), [tok])]
+    ok = lambda e: str(e.get("status")).lower() in ("ok", "success", "")  # noqa: E731
+    rev = sorted(((e["ts"], f.ev_unit(e)) for e in evs if re.search(r"revoke", e.get("action", "")) and ok(e)
+                  and e["ts"]), key=lambda x: x[0])
+    rev = rev or tier2_revocations(f, tok)
+    auth = sorted((e for e in evs if e.get("action") == "auth_token" and str(e.get("status")).lower() == "ok"
+                   and e["ts"]), key=lambda e: e["ts"])
+    if rev and not (auth and auth[-1]["ts"] > rev[0][0]):
+        at, unit = rev[0]
+        r.answer, r.units = {"status": "revoked", "at": at}, [unit] if unit else []
+    else:   # never revoked, or it still authenticated afterwards (tier 1: the revocation did not take effect)
         r.answer = {"status": "valid", "at": auth[-1]["ts"] if auth else None}
-        r.units = [u for u in [f.ev_unit(auth[-1])] if u] if auth else []
-        # revocations may also be recorded only by tier-2 sources (SIEM, handover): not read here → not confident
-        r.problems.append("no revocation in the audit log; tier-2 sources not checked")
-    r.confident = not r.problems
+        if auth:
+            r.units = [u for u in [f.ev_unit(auth[-1])] if u]
+        else:
+            r.units = [u for p in f.roles.documents for u in f.v.units(p)[1:]
+                       if not u.untrusted and ids_in(u.text, [tok])][:1]   # the tier-2 handover's line on the token
+    r.confident = not r.problems and f.events() != []
+    if not f.events():
+        r.problems.append("no gateway events")
     return r
 
 

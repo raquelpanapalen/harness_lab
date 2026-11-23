@@ -85,6 +85,11 @@ def test_normalise_answers() -> None:
     assert N.answer('["b-2", "a-1", "b-2"]', "list", req) == ["a-1", "b-2"]
     assert N.answer(["B", "A"], "list", "Order the events earliest first, as a sorted JSON array") == ["B", "A"]
     assert N.answer(["3", "1"], "list", "Return the claim numbers as a sorted JSON array.") == [1, 3]
+    # asked for domains, a URL item is its host (live or defanged); other requests keep URLs as they are
+    doms = "List every attacker domain the pages do not show, as a sorted JSON array."
+    assert N.answer(["hxxp://relay[.]invalid", "https://b.test/x?y=1", "a.test"], "list", doms) == \
+        ["a.test", "b.test", "relay.invalid"]
+    assert N.answer(["http://a.test/x"], "list", "List the URLs, as a sorted JSON array.") == ["http://a.test/x"]
     obj = 'Answer as JSON {"records": <number>, "owner_email": "<address>", "at": "<UTC time>"}.'
     got = N.answer('{"Records": "12", "owner email": "a@b.example", "at": "2026-11-14 01:05:00"}', "object", obj)
     assert got == {"records": 12, "owner_email": "a@b.example", "at": "2026-11-14T01:05:00Z"}, got

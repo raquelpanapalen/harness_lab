@@ -20,6 +20,7 @@ from harness.facts import Judge, Settings, expand, facts_for, parse_standing_ord
 from harness.index import Index  # noqa: E402
 
 RUNBOOK = """# Runbook
+- Times: answer in UTC. The rotated archive log uses local time (CET = UTC+1).
 - Exfiltrated records: transfers to destinations outside acme.example ... tonight's rules are on the signed standing
 order (/order.jpg, a photographed sheet).
 """
@@ -230,6 +231,9 @@ def test_standing_order_parser():
     s5 = parse_standing_order("1. Blocked transfers. A stopped transfer is exposure all the same: count it.",
                               decide=FakeJev())
     assert s5.count_blocked is None  # pattern says yes, Jev says no: unknown, never a guess
+    neg = parse_standing_order("1. Blocked transfers. Do not leave out transfers that were blocked. They count.")
+    assert neg.count_blocked is True, neg   # a negated exclusion counts them (rp001's sheet)
+    assert parse_standing_order("1. Blocked transfers. Do not count a transfer that was blocked.").count_blocked is False
     s6 = parse_standing_order(ORDER + "\nMARKS: none")
     assert s6.buffer_min == 45  # the transcript's MARKS line is not part of the order
 

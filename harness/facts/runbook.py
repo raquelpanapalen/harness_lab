@@ -26,7 +26,7 @@ from typing import Any
 
 from ..index import TaskView, Unit, ext
 from ..localtools import LocalTools
-from ..roles import AGENTS_MD, Roles, roles_of
+from ..roles import AGENTS_MD, TICKET_ID, Roles, approves, roles_of
 from .instruction_judge import Judge
 
 TRANSFER_ACTIONS = ("send_email", "http_post")
@@ -174,7 +174,10 @@ def _regex_settings(items: list[str]) -> Settings:
         elif re.search(r"\bno buffer\b|the minute .* ends|immediately after|:\s*none\b|\bno\b.{0,20}\bbuffer", x):
             s.buffer_min = 0
     x = item("blocked", "stopped")
-    if x:
+    if x and re.search(r"\b(?:do not|don'?t|never|must not)\s+(?:leave\b.{0,30}\bout|exclude|ignore|drop|omit|"
+                       r"disregard)|\bthey (?:still )?count\b", x):
+        s.count_blocked = True   # a negated exclusion ("Do not leave out transfers that were blocked. They count.")
+    elif x:
         if re.search(r"not exposure|not count|not counted|don'?t count|delivered transfers only|only (?:delivered|"
                      r"successful)|leave .{0,30}out|never left|exclude|ignore", x):
             s.count_blocked = False
@@ -596,6 +599,8 @@ class Facts:
             fact = Fact(set(), [], ia.ok, list(ia.problems))
             if not self.events():
                 return fact.fail("no gateway events")
+            if any(e["ts"] is None for e in self.events()):   # archive local times the workspace gives no zone for
+                fact.fail("archive time zone not stated: local times not converted")
             tr = self.traces()
             for t, es in tr.items():
                 first = next((e for e in es if e["action"] != "upload_artifact"), None)
@@ -792,8 +797,9 @@ class Facts:
                 "rq": rq, "ticket": ticket}
 
     def approvals(self) -> dict[str, list[Unit]]:
-        """Change tickets recorded as approved by tier-2 sources: the change log and the on-call handover (any
-        format). A line counts when it names the ticket and says approved, and does not withdraw it."""
+        """Change tickets recorded as approved by tier-2 sources: the change log and the on-call handover, found by
+        content (harness/roles.py, approval_sources), not by name. A trusted line counts when it names the ticket and
+        says approved, and does not withdraw it."""
         def f():
             out: dict[str, list[Unit]] = defaultdict(list)
             ch = self.changes().value
@@ -801,20 +807,12 @@ class Facts:
                 if not re.search(r"reject|denied|withdrawn|revoked|pending|cancel", a["text"].lower()):
                     u = self.v.find({"path": ch["path"], "line": a["line"]})
                     out[a["ticket"]].append(u) if u else None
-            sources = [ch["path"]] if ch["path"] else []
-            # the on-call handover (tier 2): never an artifact copy, an inbox message or a ticket
-            r = self.roles
-            skip = set(r.all("message")) | set(r.all("ticket"))
-            ad = r.artifact_dir
-            sources += [p for p in self.v.paths() if re.search(r"handover|on[-_ ]?call", p.rsplit("/", 1)[-1].lower())
-                        and p not in skip and not (ad and p.startswith(ad))]
+            sources = ([ch["path"]] if ch["path"] else []) + self.roles.approval_sources
             for p in sources:
                 for u in self.v.units(p)[1:]:
-                    low = u.text.lower()
-                    if "approv" not in low or re.search(r"not approved|unapproved|reject|denied|withdrawn|revoked|"
-                                                         r"pending|cancel", low):
+                    if u.untrusted or not approves(u.text):
                         continue
-                    for t in re.findall(r"\b[A-Z]{2,5}-\d+\b", u.text):
+                    for t in TICKET_ID.findall(u.text):
                         out[t].append(u)
             return dict(out)
         return self._once("approvals", f)

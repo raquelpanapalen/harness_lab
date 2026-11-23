@@ -38,6 +38,8 @@ import json
 import re
 import threading
 from dataclasses import dataclass, field
+from datetime import timedelta, timezone, tzinfo
+from zoneinfo import ZoneInfo
 
 from .index import IMAGE_EXT, TEXT_EXT, TaskView, ext
 
@@ -165,6 +167,30 @@ def ids_in(text: str, ids) -> list[str]:
 
 
 _TAGS: dict[str, frozenset[str]] = {}
+_APPROVALS: dict[str, bool] = {}
+TICKET_ID = re.compile(r"\b[A-Z]{2,5}-\d+\b")
+NOT_APPROVED = re.compile(r"not approved|unapproved|reject|denied|withdrawn|revoked|pending|cancel", re.I)
+
+
+def approves(text: str) -> bool:
+    """A line that records a change ticket as approved (and does not withdraw it)."""
+    return "approv" in text.lower() and not NOT_APPROVED.search(text) and bool(TICKET_ID.search(text))
+
+
+def approval_doc(view: TaskView, path: str) -> bool:
+    """A parsed document with a trusted line (no planted text) that approves a change ticket; cached per blob.
+    PDFs are not parsed for this (they are parsed lazily, and no approval record came as a PDF on dev)."""
+    sha = view.files.get(path)
+    d = view.doc(path, parse_lazy=False) if sha else None
+    if d is None or not d.parsed:
+        return False
+    with _lock:
+        hit = _APPROVALS.get(sha)
+    if hit is None:
+        hit = any(u.kind != "file" and not u.untrusted and approves(u.text) for u in d.units)
+        with _lock:
+            _APPROVALS[sha] = hit
+    return hit
 
 
 def tags_of(view: TaskView, path: str) -> frozenset[str]:
@@ -260,6 +286,35 @@ class Roles:
     def board(self) -> list[str]:
         return self.all("board")
 
+    def local_zone(self) -> tzinfo | None:
+        """The time zone of the rotated archive's local times, as the workspace states it: a note next to the archive,
+        else the operator files; an IANA name ("Europe/Vienna") before a fixed offset ("CET = UTC+1"). None when
+        nothing states it (archive times are then left unconverted, never guessed)."""
+        if "_zone" in self.memo:
+            return self.memo["_zone"]
+        dirs = {p.rsplit("/", 1)[0] + "/" for p in self.archive}
+        notes = [p for p in self.view.paths() if any(p.startswith(d) for d in dirs) and ext(p) in ("md", "txt")]
+        texts = [self.text(p) for p in notes] + [t for _, t in self.operator_texts()]
+        zone = None
+        for t in texts:
+            for name in re.findall(r"\b((?:Europe|America|Asia|Africa|Australia|Pacific|Atlantic|Indian)/[A-Za-z_]+)\b", t):
+                try:
+                    zone = ZoneInfo(name)
+                    break
+                except Exception:  # noqa: BLE001 - not a zone name
+                    continue
+            if zone:
+                break
+        if zone is None:
+            for t in texts:
+                m = re.search(r"\bUTC\s*([+\-−])\s*(\d{1,2})(?::(\d{2}))?", t)
+                if m:
+                    sign = -1 if m.group(1) in "-−" else 1
+                    zone = timezone(sign * timedelta(hours=int(m.group(2)), minutes=int(m.group(3) or 0)))
+                    break
+        self.memo["_zone"] = zone
+        return zone
+
     # -- registries --
     @property
     def registry(self) -> str | None:
@@ -347,12 +402,49 @@ class Roles:
         skip = set(self.operator) | set(self.all("ticket")) | set(self.all("message")) | {path}
         return [p for p in self.view.paths() if ext(p) in ext_ and p not in skip and path in self.text(p)]
 
+    def agent_ids(self) -> set[str]:
+        """Our agents' ids: the registry's agents and the roster's id column."""
+        if "_agents" not in self.memo:
+            ids: set[str] = set()
+            if self.registry:
+                try:
+                    ids |= {a.get("id") for a in json.loads(self.text(self.registry)).get("agents", []) if a.get("id")}
+                except (ValueError, AttributeError):
+                    pass
+            t = self.roster_table()
+            if t:
+                d = self.view.doc(t[0], parse_lazy=False)
+                ids |= {(r.get(t[1]) or "").strip() for r in csv.DictReader(io.StringIO("\n".join(d.lines or [])))}
+            self.memo["_agents"] = ids - {""}
+        return self.memo["_agents"]
+
+    @property
+    def documents(self) -> list[str]:
+        """Prose documents that may be tier-2 human records (the on-call handover, notes): md / txt / docx / odt with no
+        role of their own, outside the artifact copies, and not an agent's self-report (a file named after one of our
+        agents is tier 3)."""
+        if "_docs" not in self.memo:
+            tagged = {p for ps in self.by_tag.values() for p in ps}
+            ad, ids = self.artifact_dir, self.agent_ids()
+            self.memo["_docs"] = [p for p in self.view.paths() if ext(p) in ("md", "txt", "docx", "odt")
+                                  and p not in tagged and p not in self.operator and not (ad and p.startswith(ad))
+                                  and p.rsplit("/", 1)[-1].rsplit(".", 1)[0] not in ids]
+        return self.memo["_docs"]
+
+    @property
+    def approval_sources(self) -> list[str]:
+        """Tier-2 approval records besides the change log (the on-call handover, in any format and under any name):
+        documents with a trusted line approving a change ticket. Never a log, a table or another role's file."""
+        if "_approvals" not in self.memo:
+            self.memo["_approvals"] = [p for p in self.documents if approval_doc(self.view, p)]
+        return self.memo["_approvals"]
+
     # -- what the solvers' facts depend on (the facts cache key) --
     def fact_files(self) -> list[str]:
         out = set(self.operator) | set(self.audit) | set(self.archive) | set(self.containment_states)
         out |= {p for p in (self.registry, self.contacts, self.changes, self.artifact_index, self.roster,
                             self.signed_order) if p}
-        out |= set(self.all("tokens")) | set(self.all("fingerprints"))
+        out |= set(self.all("tokens")) | set(self.all("fingerprints")) | set(self.approval_sources)
         ad = self.artifact_dir
         out |= {p for p in self.view.paths() if (ad and p.startswith(ad)) or ext(p) in ("csv", "xlsx", "ods")}
         return sorted(out)

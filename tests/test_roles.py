@@ -159,6 +159,31 @@ def test_ids_come_from_the_workspace() -> None:
     assert f.token_ids() == ["CRED-KEY-17"], f.token_ids()
 
 
+def test_archive_zone_comes_from_the_workspace() -> None:
+    files = renamed_files()
+    files["/logs/rotated/README.md"] = "Local time (Europe/Vienna) in this archive."
+    r = roles_of(Index.build(FakeClient(files), "r").view("t1"))
+    assert str(r.local_zone()) == "Europe/Vienna"             # the archive's note wins over the runbook's offset
+    no_zone = "\n".join(x for x in rename(FILES["/runbook.md"]).splitlines() if "UTC+1" not in x)
+    f = facts({**renamed_files(), "/playbook.md": no_zone})   # a runbook that states no time zone
+    assert f.roles.local_zone() is None and not f.attack_traces().ok   # never guessed: archive times unconverted
+    assert any("time zone" in p for p in f.attack_traces().problems)
+
+
+def test_handover_found_by_content() -> None:
+    files = renamed_files()
+    log = files["/crew/iam_log.md"]
+    files["/crew/iam_log.md"] = log.replace("- CHG-77: gamma-3 may send R-1..R-5 to Partner Co (files.partner.example)\n", "")
+    without = facts(files, {rename("/order.jpg"): ORDER})
+    assert without.exfil(without.settings().value).value["records"] == 10   # T-3 to the partner now counts
+    files["/briefs/shift_notes.md"] = "# Night shift\n\n- CHG-77 approved by the on-call lead (partner transfer).\n"
+    f = facts(files, {rename("/order.jpg"): ORDER})
+    assert f.roles.approval_sources == ["/briefs/shift_notes.md"], f.roles.approval_sources
+    assert f.exfil(f.settings().value).value["records"] == 5                # covered again, whatever the file's name
+    files["/briefs/shift_notes.md"] = "- CHG-77 approval withdrawn by the on-call lead.\n"
+    assert facts(files).roles.approval_sources == []                         # a withdrawal is no approval
+
+
 def test_request_of_joins_wrapped_lines() -> None:
     rec = TaskRecord("t1", "x", 1, request="schedule the rotation of every\nexposed token and block every\nattacker  domain")
     assert request_of(rec) == "schedule the rotation of every exposed token and block every attacker domain"

@@ -86,6 +86,18 @@ def _maybe_json(x: Any) -> Any:
     return x
 
 
+_URLISH = re.compile(r"^\s*(?:[a-z][a-z0-9+.-]*://|www\.)", re.I)
+
+
+def as_domain(x: Any) -> Any:
+    """A URL (live or defanged, `hxxps://evil[.]example/x`) → its bare host name; anything else unchanged."""
+    if not isinstance(x, str) or not _URLISH.match(x):
+        return x
+    host = re.sub(r"^\s*[a-z][a-z0-9+.-]*://", "", x.strip(), flags=re.I).replace("[.]", ".").replace("(.)", ".")
+    host = re.split(r"[/?#]", host, 1)[0].rsplit("@", 1)[-1].split(":", 1)[0]
+    return host.lower().strip(".") or x
+
+
 def answer(value: Any, shape: str, request: str) -> Any:
     req = request or ""
     v = _maybe_json(value)
@@ -95,6 +107,8 @@ def answer(value: Any, shape: str, request: str) -> Any:
         v = _num(v)
     if isinstance(v, list):
         items = [_ts(_maybe_json(x)) for x in v]
+        if re.search(r"\bdomains?\b", req, re.I):  # asked for domains: a URL item is its host (ward rp003 t20)
+            items = [as_domain(x) for x in items]
         if re.search(r"\bnumbers?\b", req, re.I):
             items = [_num(x) for x in items]
         out: list = []
