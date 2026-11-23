@@ -105,6 +105,24 @@ def test_one_read_per_blob_and_units_in_the_index() -> None:
         assert V.of(c).transcribe("t01", "/nope.jpg") == "" and V.of(c).calls == 1
 
 
+def test_runaway_transcript_is_retried_and_flagged() -> None:
+    page = "SOC indicators page 1\n" + "-" * 900
+    for second, incomplete in ((TRANSCRIPTS["/intel/scans/p1.jpg"], False), (page, True)):
+        with tempfile.TemporaryDirectory() as d:
+            c = ctx(Path(d))
+            answers, prompts = [page, second], []
+
+            def chat(messages, **kw):
+                prompts.append(messages[-1]["content"][1]["text"])
+                return {"content": answers.pop(0), "_usage": {}}
+            c.pacer.chat = chat
+            t = V.of(c).transcribe("t01", "/intel/scans/p1.jpg")
+            assert len(prompts) == 2 and V.RETRY_NOTE in prompts[1]          # one retry with the note
+            assert ("not-a-phish.test" in t) == (not incomplete) and "-" * 21 not in t  # runs collapsed
+            assert V.of(c).incomplete("t01", "/intel/scans/p1.jpg") == incomplete
+    assert V.degenerate("x" * 200) and not V.degenerate("line\n" * 300)
+
+
 def test_intake_reads_photo_tickets_until_open_and_named_images() -> None:
     with tempfile.TemporaryDirectory() as d:
         c = ctx(Path(d))

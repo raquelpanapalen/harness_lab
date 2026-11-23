@@ -80,8 +80,12 @@ def inbox(ctx, rec, facts) -> Solution:
 @register("attacker_domains")
 def attacker_domains(ctx, rec, facts) -> Solution:
     from .. import vision
-    return _solution(W.attacker_domains(facts(ARTIFACTS), _req(rec),
-                                        lambda p: vision.of(ctx).transcribe(rec.task_id, p)))
+    vis = vision.of(ctx)
+    r = W.attacker_domains(facts(ARTIFACTS), _req(rec), lambda p: vis.transcribe(rec.task_id, p))
+    bad = [p for p in vision.IMAGE_PATH.findall(_req(rec)) if vis.incomplete(rec.task_id, p)]
+    if bad:  # a page whose transcript ran away may hide listed domains: never confident on it
+        r.fail(f"transcript of {', '.join(bad)} looks incomplete (runaway repetition)")
+    return _solution(r)
 
 
 @register("partner_draft")

@@ -33,6 +33,20 @@ PROMPT = (
     "to; write MARKS: none if there are none."
 )
 MAX_TOKENS = 1200
+# A runaway transcript repeats one character (a rule, a separator line) until it hits MAX_TOKENS, losing the lines after
+# it (layout-dev rp001 t10: 19,086 characters for an 8-line page, the domains never written). One retry asks for rules
+# as a short "---"; long runs are then collapsed, and `degenerate()` tells readers a transcript may be incomplete.
+RUN = re.compile(r"(\S)\1{199,}")
+RETRY_NOTE = " Write ruled lines, separators and other long runs of one character as a short --- only."
+
+
+def degenerate(text: str) -> bool:
+    """A transcript with a run of 200+ identical characters (it most likely stopped before the end of the image)."""
+    return bool(RUN.search(text or ""))
+
+
+def collapse(text: str) -> str:
+    return re.sub(r"(\S)\1{20,}", lambda m: m.group(1) * 3, text or "")
 
 _ctx_lock = threading.Lock()
 
@@ -51,6 +65,7 @@ class Vision:
     def __init__(self, ctx: Any):
         self.ctx = ctx
         self.cache: dict[str, str] = {}        # sha256 → transcript
+        self.degenerate: set[str] = set()       # sha256 of transcripts still runaway after the retry (may be incomplete)
         self.locks: dict[str, threading.Lock] = {}
         self.lock = threading.Lock()
         self.calls = 0
@@ -78,10 +93,23 @@ class Vision:
             ctx = self.ctx
             data = ctx.client.blob(ctx.run_id, sha, task_id)
             before = ctx.tracker.total
-            msg = ctx.pacer.chat([{"role": "user", "content": [
-                {"type": "image_url", "image_url": {"url": data_url(path, data)}},
-                {"type": "text", "text": PROMPT}]}], max_tokens=MAX_TOKENS, temperature=0.0, log=log)
+            def ask(prompt: str) -> dict:
+                return ctx.pacer.chat([{"role": "user", "content": [
+                    {"type": "image_url", "image_url": {"url": data_url(path, data)}},
+                    {"type": "text", "text": prompt}]}], max_tokens=MAX_TOKENS, temperature=0.0, log=log)
+            msg = ask(PROMPT)
             text = (msg.get("content") or "").strip()
+            retried = degenerate(text)
+            if retried:  # one more try; keep whichever reading is not runaway (else the second)
+                msg2 = ask(PROMPT + RETRY_NOTE)
+                text2 = (msg2.get("content") or "").strip()
+                if not degenerate(text2) or len(text2) < len(text):
+                    msg, text = msg2, text2
+            bad = degenerate(text)
+            text = collapse(text)
+            with self.lock:
+                if bad:
+                    self.degenerate.add(sha)
             with self.lock:
                 self.cache[sha] = text
                 self.calls += 1
@@ -90,9 +118,16 @@ class Vision:
                 ctx.index.attach_text(sha, path, text)
             if log:
                 usage = msg.get("_usage") or {}
-                log({"event": "transcribe", "path": path, "sha": sha[:12], "chars": len(text),
+                log({"event": "transcribe", "path": path, "sha": sha[:12], "chars": len(text), "retried": retried,
+                     "degenerate": bad,
                      "prompt_tokens": usage.get("prompt_tokens"), "image_cost": usage.get("cost")})
             return text
+
+    def incomplete(self, task_id: str, path: str) -> bool:
+        """True when this image's transcript ran away even after the retry: its later lines may be missing."""
+        sha = self.sha(task_id, path)
+        with self.lock:
+            return bool(sha) and sha in self.degenerate
 
     def transcribe_named(self, task_id: str, text: str, paths: list[str], log=None) -> list[str]:
         """Transcribe the task's images that `text` names; returns their paths."""

@@ -28,6 +28,12 @@ FONTS = {
     "hand": "opentype/malayalam/Chilanka-Regular.otf",
     "stamp": "truetype/noto/NotoSansMono-Bold.ttf",
 }
+# Without Noto (macOS): fonts that also cover bullets, dashes and accents. Pillow's built-in font draws those as boxes,
+# which made the fixed model's transcript of a redrawn page run away (layout-dev rp001 t10: 19,086 characters).
+MAC_DIR = Path("/System/Library/Fonts/Supplemental")
+MAC_FONTS = {"title": ["Arial Bold.ttf", "Arial Unicode.ttf"], "mono": ["Courier New.ttf", "Arial Unicode.ttf"],
+             "hand": ["Bradley Hand Bold.ttf", "Noteworthy.ttc", "Arial Unicode.ttf"],
+             "stamp": ["Courier New Bold.ttf", "Arial Unicode.ttf"]}
 STAMP_WORDS = ("OPEN", "CLOSED", "APPROVED", "VOID", "REVOKED", "SUPERSEDED", "DRAFT", "COPY", "CANCELLED", "DENIED",
                "REJECTED", "VERIFIED", "RECEIVED", "PAID", "FILED")
 
@@ -120,10 +126,10 @@ def with_request(transcript: str, request: str) -> str:
 # --- drawing ---------------------------------------------------------------------------------------------------------
 def _font(kind: str, size: int):
     from PIL import ImageFont
-    path = FONT_DIR / FONTS[kind]
-    if path.exists():
-        return ImageFont.truetype(str(path), size)
-    return ImageFont.load_default(size)  # no Noto here (e.g. macOS): Pillow's built-in scalable font
+    for path in [FONT_DIR / FONTS[kind]] + [MAC_DIR / f for f in MAC_FONTS[kind]]:
+        if path.exists():
+            return ImageFont.truetype(str(path), size)
+    return ImageFont.load_default(size)  # last resort: Pillow's built-in font (no bullet or dash glyphs)
 
 
 def render(transcript: str, ext: str, seed: str) -> bytes:
