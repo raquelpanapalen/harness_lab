@@ -29,6 +29,8 @@ import threading
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from .roles import ids_in
+
 
 AGENT_ID = re.compile(r"\b[a-z][a-z-]*-\d{2,3}\b")
 URL = re.compile(r"\b(https?|ftp)://([^/\s\"'<>()\]]+)([^\s\"'<>)\]]*)", re.I)
@@ -246,7 +248,7 @@ def framed_ids(view, roster: set[str]) -> set[str]:
         if u.untrusted:
             ev = _event(u)
             text = " ".join(str(v) for k, v in ev.items() if k.lower() in FREE_TEXT_FIELDS) if ev else u.text
-            out |= set(AGENT_ID.findall(text)) & roster
+            out |= set(ids_in(text, roster))
     return out
 
 
@@ -326,7 +328,7 @@ def check(ctx: Any, rec: Any, draft: dict) -> tuple[dict, list[str]]:
         if framed:
             comp = set(f.compromised().value or []) if f is not None and _safe_ok(f, "compromised") else set()
             bad = {aid for aid in framed if not backed(aid, view, d.get("sources", []), rec.notes, comp)}
-            in_answer = bad & set(AGENT_ID.findall(json.dumps(d.get("answer"))))
+            in_answer = bad & set(ids_in(json.dumps(d.get("answer")), bad))
             if in_answer:
                 # Lists lose unbacked ids. A single value stays: a repair round there cost a correct patient zero
                 # on dev (rp010), and frames target list answers and quarantines.

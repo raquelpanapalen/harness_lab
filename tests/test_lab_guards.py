@@ -109,6 +109,16 @@ class FakeFacts:
     def text(self, path):
         return FILES.get(path)
 
+    # ids from the workspace (ticket 17): the fake inventory's first column, the roster, the incident in AGENTS.md
+    def token_ids(self):
+        return [str(next(iter(r.values()))).strip() for r in self.csv_rows("/fleet/tokens.csv")]
+
+    def agent_ids(self):
+        return set(self.roster().value)
+
+    def incident_id(self):
+        return F("INC-MF-261114-02")
+
 
 def setup(tmp: Path, **kw) -> Ctx:
     idx = Index()

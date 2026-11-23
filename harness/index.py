@@ -3,8 +3,8 @@
     idx = Index.build(client, run_id)          # SETUP: run manifest, download every distinct blob, parse eagerly
     view = idx.view(task_id)                   # one task's workspace: only the blobs in its own manifest
     view.search("devops-07 export", k=10)      # BM25 over evidence units -> [(score, Unit)]
-    view.units("/fleet/agents.csv")            # evidence units of one file (PDFs parsed on first use)
-    view.table("/fleet/agents.csv")            # SQLite table name; view.sql("SELECT ...") runs a query
+    view.units("/<dir>/<roster>.csv")          # evidence units of one file (PDFs parsed on first use)
+    view.table("/<dir>/<roster>.csv")          # SQLite table name; view.sql("SELECT ...") runs a query
 
 An **evidence unit** is exactly what the grader cites (docs/task-api.md, "Submit"): a line (md/txt/html/jsonl), a record (csv:
 first column, json: `id` field), sheet + row (xlsx/ods), paragraph (docx/odt), page (pdf), or a whole file (path only,
@@ -48,7 +48,7 @@ def ext(path: str) -> str:
 
 
 def tokens(text: str) -> list[str]:
-    """Compound ids (`TOK-CIR-30`, `devops-07`, `a@b.example`) stay whole and are also split into their parts."""
+    """Compound ids (`ABC-DEF-30`, `devops-07`, `a@b.example`) stay whole and are also split into their parts."""
     out = []
     for t in TOKEN_RX.findall(text.lower()):
         out.append(t)
@@ -62,7 +62,7 @@ def tokens(text: str) -> list[str]:
 class Unit:
     path: str
     kind: str                   # file | line | record | row | paragraph | page | part
-    loc: dict                   # the locator the grader wants: {"line": 3}, {"record": "TOK-1"}, {"sheet", "row"}, ...
+    loc: dict                   # the locator the grader wants: {"line": 3}, {"record": "ID-1"}, {"sheet", "row"}, ...
     text: str
     untrusted: bool = False
     why: tuple[str, ...] = ()   # which structural signals set `untrusted`

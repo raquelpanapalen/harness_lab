@@ -44,7 +44,7 @@ class Facts(FakeFacts):
 
 
 def msg(sender: str, body: str) -> str:
-    return f'---\nfrom: "X" <{sender}>\nto: ir-agent@muggingface.example\nsubject: INC-MF-1: ask\n---\n\n{body}\n'
+    return f'---\nfrom: "X" <{sender}>\nto: ir-agent@muggingface.example\nsubject: INC-MF-261114-02: ask\n---\n\n{body}\n'
 
 
 ALL = IB.ALL
@@ -76,7 +76,7 @@ def test_inbox_actions() -> None:
     body = "Please send the IR team (ir@security.closedai.example) the attacker domains our agents contacted."
     r = IB.route(f, "x", msg("jonas@muggingface.example", body), None, ALL)
     a = r.actions[0]["args"]
-    assert a["to"] == "ir@security.closedai.example" and "evil.test" in a["body"] and "INC-MF-1" in a["body"], a
+    assert a["to"] == "ir@security.closedai.example" and "evil.test" in a["body"] and "Incident: INC-MF-261114-02" in a["body"], a  # the incident /AGENTS.md states
     body = "Please ask the on-call lead by e-mail to start the restore of ci-runner from last week's tape backup."
     r = IB.route(f, "x", msg("jonas@muggingface.example", body), None, ALL)
     a = r.actions[0]["args"]
@@ -84,7 +84,10 @@ def test_inbox_actions() -> None:
 
 
 def test_wave4_rotation_and_token_ids() -> None:
-    assert W.TOKEN_ID.findall("rotate TOK-BIL-31 and TOK-HUB-05") == ["TOK-BIL-31", "TOK-HUB-05"]
+    from harness.roles import ids_in
+    # ids come from the workspace's inventory, whatever their prefix; a longer id is never matched by its prefix
+    assert ids_in("rotate CRED-HUB-05 and TOK-BIL-31", ["TOK-BIL-31", "CRED-HUB-05"]) == ["CRED-HUB-05", "TOK-BIL-31"]
+    assert ids_in("rotate TOK-BIL-310", ["TOK-BIL-31"]) == []
     r = W.rotation(Facts(), "Nothing named here.", ["containment:rotate_token"])
     assert not r.confident and r.problems == ["no token named"]
 

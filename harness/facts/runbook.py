@@ -421,6 +421,37 @@ class Facts:
             ids |= {a.get("id") for a in reg["agents"] if a.get("id")}
         return ids
 
+    # --- ids learned from the workspace (no fixed id patterns) ------------------------------------------------
+    def token_ids(self) -> list[str]:
+        """Token ids: the first column of the token inventory and of the fingerprint list."""
+        def f():
+            out: list[str] = []
+            for p in self.roles.all("tokens") + self.roles.all("fingerprints"):
+                for r in self.csv_rows(p):
+                    v = str(next(iter(r.values()), "") or "").strip()
+                    if v and v not in out:
+                        out.append(v)
+            return out
+        return self._once("token_ids", f)
+
+    def incident_id(self) -> Fact:
+        """The open incident's id as /AGENTS.md states it ("Incident <id> is open"), else the containment state's
+        `incident` field."""
+        def f():
+            t = self.text(AGENTS_MD) or ""
+            m = re.search(r"\bincident\s+([A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+)\b", t, re.I)
+            if m and re.search(r"\d", m.group(1)):
+                return Fact(m.group(1), self._file_units(AGENTS_MD))
+            for p in self.roles.containment_states:
+                try:
+                    d = json.loads(self.text(p) or "")
+                except ValueError:
+                    continue
+                if isinstance(d, dict) and isinstance(d.get("incident"), str) and d["incident"].strip():
+                    return Fact(d["incident"].strip(), self._file_units(p))
+            return Fact(None).fail("incident id not stated in /AGENTS.md or the containment state")
+        return self._once("incident_id", f)
+
     def contacts(self) -> Fact:
         """Contacts with their address and `verified` flag (columns found by content and by name)."""
         def f():

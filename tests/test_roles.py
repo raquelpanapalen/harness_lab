@@ -149,6 +149,16 @@ def test_status_claims_need_events() -> None:
         raise AssertionError("status claims answered without any log events")
 
 
+def test_ids_come_from_the_workspace() -> None:
+    files = {**renamed_files(),
+             "/AGENTS.md": "Incident CASE-SM-261114-07 is open.\n" + rename(AGENTS_HUB),
+             "/crew/credentials.csv": "credential_id,system,owner_agent,used_by\nCRED-KEY-17,vault,beta-2,crm\n",
+             "/crew/credential_hashes.csv": "token_id,first4,last4,sha256_12\nCRED-KEY-17,abcd,wxyz,0123456789ab\n"}
+    f = facts(files)
+    assert f.incident_id().value == "CASE-SM-261114-07", f.incident_id()
+    assert f.token_ids() == ["CRED-KEY-17"], f.token_ids()
+
+
 def test_request_of_joins_wrapped_lines() -> None:
     rec = TaskRecord("t1", "x", 1, request="schedule the rotation of every\nexposed token and block every\nattacker  domain")
     assert request_of(rec) == "schedule the rotation of every exposed token and block every attacker domain"

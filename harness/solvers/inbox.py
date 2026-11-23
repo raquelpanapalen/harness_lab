@@ -21,6 +21,7 @@ from typing import Any
 from .. import guards
 from ..vision import body as _strip_marks  # noqa: F401  (kept for symmetry with transcribed messages)
 from . import request_of
+from ..roles import ids_in
 from .response import AGENT_ID, DOMAIN, Result, _exfil, resolve_agent
 
 ADDRESS = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
@@ -114,7 +115,7 @@ def _route(f, request: str, message: str, action: str | None, allow: list[str]) 
         verb = "send_message"
     if verb == "quarantine_agent":
         clean_body = re.sub(r"\([^)]*\)", " ", body)  # "(stand-in if required)" is not a target
-        refs = AGENT_ID.findall(clean_body)
+        refs = ids_in(clean_body, (f.roster().value or {})) or AGENT_ID.findall(clean_body)
         if not refs:
             m = re.search(r"([\w'’ -]+?)\s+(?:needs|has|must|should)\s+(?:to\s+)?(?:go|be put|be placed|be moved)\s+"
                           r"in(?:to)?\s+quarantine", clean_body, re.I) or \
@@ -173,9 +174,9 @@ def _route(f, request: str, message: str, action: str | None, allow: list[str]) 
         if to is None:
             return r.fail("recipient not found among verified contacts")
         lines = []
-        inc = re.search(r"\bINC-[A-Z0-9-]+\b", message) or re.search(r"\bINC-[A-Z0-9-]+\b", f.text("/AGENTS.md") or "")
+        inc = f.incident_id().value
         if inc:
-            lines.append(f"Incident: {inc.group(0)}")
+            lines.append(f"Incident: {inc}")
         used = []
         if re.search(r"attacker domain|indicator", low):
             ad = f.attacker_domains()

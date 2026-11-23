@@ -16,9 +16,9 @@ from typing import Any
 
 from .. import guards
 from ..normalise import template_keys
+from ..roles import ids_in
 
-TOKEN_ID = re.compile(r"\bTOK-[A-Z0-9]+-\d+\b")
-AGENT_ID = re.compile(r"\b[a-z][a-z-]*-\d{2,3}\b")
+AGENT_ID = re.compile(r"\b[a-z][a-z-]*-\d{2,3}\b")   # only to tell an id from a name; ids come from the workspace
 DOMAIN = re.compile(r"\b(?:[a-z0-9-]+\.)+(?:test|invalid|example|com|net|org|io|ai|dev|eu)\b", re.I)
 
 
@@ -149,7 +149,7 @@ def exfiltration(f, request: str) -> Result:
         r.answer = {"agent": top, "owner_email": mail}
         r.units = [t["unit"] for t in counting if t["unit"] and t["agent"] == top][:2]
     elif re.search(r"\bwhich (?:destination )?domain\b|domain (?:name )?only", low):
-        agent = next(iter(AGENT_ID.findall(request)), None)
+        agent = next(iter(ids_in(request, f.agent_ids())), None)
         ts = sorted((t for t in counting if t["status"] == "ok" and (agent is None or t["agent"] == agent)),
                     key=lambda t: t["ts"] or "")
         if not ts:
@@ -188,7 +188,7 @@ def canaries(f, request: str) -> Result:
 
 def rotation(f, request: str, allow: list[str]) -> Result:
     r = Result()
-    tok = next(iter(TOKEN_ID.findall(request)), None)
+    tok = next(iter(ids_in(request, f.token_ids())), None)
     if not tok:
         return r.fail("no token named")
     at, why = guards.schedule_rotation(f, tok)
@@ -243,7 +243,7 @@ def first_token(f, request: str) -> Result:
 def token_status(f, request: str) -> Result:
     """Revoked if a revocation of the token took effect (audit log), else valid as of its latest successful use."""
     r = Result()
-    tok = next(iter(TOKEN_ID.findall(request)), None)
+    tok = next(iter(ids_in(request, f.token_ids())), None)
     if not tok:
         return r.fail("no token named")
     evs = [e for e in f.events() if tok in str(e.get("target", ""))]
@@ -264,7 +264,7 @@ def token_status(f, request: str) -> Result:
 
 def board_origin(f, request: str) -> Result:
     r = Result()
-    agent = next(iter(AGENT_ID.findall(request)), None)
+    agent = next(iter(ids_in(request, f.agent_ids())), None)
     if not agent:
         return r.fail("no agent named")
     o = f.origin(agent)
@@ -282,10 +282,10 @@ def breach_notification(f, request: str, allow: list[str]) -> Result:
             if re.match(r"^[a-z_ ]+:\s", ln.strip()) and not ln.strip().lower().startswith("no ")]
     if not tmpl or ex.value is None:
         return r.fail("notification template or exfiltration facts missing")
-    inc = re.search(r"\bINC-[A-Z0-9-]+\b", request) or re.search(r"\bINC-[A-Z0-9-]+\b", f.text("/AGENTS.md") or "")
+    inc = f.incident_id().value
     comp, quar = f.compromised(), f.quarantined()
     contained = set(comp.value or []) <= set(quar.value or {})
-    vals = {"incident": inc.group(0) if inc else None, "records_affected": ex.value["records"],
+    vals = {"incident": inc, "records_affected": ex.value["records"],
             "detected_at": ex.value["first_counting"], "contained": "yes" if contained else "no"}
     lines = []
     for ln in tmpl:
@@ -327,7 +327,7 @@ def containment(f, request: str, allow: list[str]) -> Result:
     comp, quar = f.compromised(), f.quarantined()
     used = [comp]
     # quarantine targets
-    named = [a for a in AGENT_ID.findall(request) if a in roster]
+    named = ids_in(request, roster)
     refs = []
     for m in re.findall(r"((?:[^\W\d_][\w'’.-]*)(?: [^\W\d_][\w'’.-]*){0,3})['’]s agent", request):
         words = m.split()
@@ -364,7 +364,7 @@ def containment(f, request: str, allow: list[str]) -> Result:
         si = guards.stand_in(f, a)
         ops.append({"op": "quarantine_agent", "agent": a, **({"stand_in": si} if si else {})})
     # tokens
-    toks = TOKEN_ID.findall(request)
+    toks = ids_in(request, f.token_ids())
     if re.search(r"every exposed token|all exposed tokens|exposed tokens", low) or not toks:
         ext = f.exposed_tokens()
         used.append(ext)
@@ -384,7 +384,8 @@ def containment(f, request: str, allow: list[str]) -> Result:
     own = f.own_domain().value or ""
     safe = f.verified_domains() | ({own} if own else set())
     for d in dict.fromkeys(doms):
-        if not any(d == s or d.endswith("." + s) for s in safe) and not d.startswith("inc-"):
+        inc = (f.incident_id().value or "").lower()
+        if not any(d == s or d.endswith("." + s) for s in safe) and not (inc and d.startswith(inc)):
             ops.append({"op": "block_domain", "domain": d})
     ops = [o for o in ops if f"containment:{o['op']}" in allow]
     if ops:
@@ -452,7 +453,7 @@ def partner_draft(f, request: str, allow: list[str]) -> Result:
     pz = f.patient_zero()
     if ex.value is None or not pz.value:
         return r.fail("exfiltration or patient-zero facts missing")
-    inc = re.search(r"\bINC-[A-Z0-9-]+\b", request)
+    inc = f.incident_id().value
     counting = _counting(f, ex)
     doms = sorted({t["to"] for t in counting if t["to"]})
     at = str(pz.value.get("at") or "")
@@ -460,7 +461,7 @@ def partner_draft(f, request: str, allow: list[str]) -> Result:
     if not (inc and hhmm):
         r.problems.append("incident id or patient-zero time missing")
     content = "\n".join([
-        f"Incident: {inc.group(0) if inc else ''}",
+        f"Incident: {inc or ''}",
         f"Exfiltrated customer records: {ex.value['records']}",
         f"Destination domains: {', '.join(doms)}",
         f"Patient zero first processed the entry artifact at {hhmm} UTC.",

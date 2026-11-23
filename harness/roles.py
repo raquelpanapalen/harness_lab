@@ -154,6 +154,16 @@ def blob_tags(path: str, lines: list[str] | None) -> frozenset[str]:
     return frozenset(tags)
 
 
+def ids_in(text: str, ids) -> list[str]:
+    """The known ids (agents, tokens, ...) that `text` names, in order of first appearance: whole ids only, so a
+    prefix of a longer id is no match. The id formats come from the workspace, never from a fixed pattern."""
+    hits = []
+    for i in ids:
+        if i and (m := re.search(rf"(?<![\w-]){re.escape(i)}(?![\w-])", text or "")):
+            hits.append((m.start(), -len(i), i))
+    return [i for _, _, i in sorted(hits)]
+
+
 _TAGS: dict[str, frozenset[str]] = {}
 
 
