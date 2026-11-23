@@ -1,7 +1,7 @@
-# Code computes, models judge: a three-cent incident-response agent on a small model
+# Code computes, models judge: a two-cent incident-response agent on a small model
 
-*How we took a security-investigation agent from a leaderboard Score of 0.152 to 0.965 on held-out runs at $0.03 per run,
-with one fixed 31B model, and how we found out where it would still break.*
+*How we took a security-investigation agent from a leaderboard Score of 0.152 to 0.985 on held-out runs at about $0.02 per
+run, with one fixed 31B model, how we found out where it broke, and how we made it hold on workspaces it had never seen.*
 
 Harness Arena gave every team the same models and the same tasks and scored only the harness around them: the code that
 decides what the model sees, what it is asked, and what leaves the agent. This article describes what we built, how we
@@ -123,15 +123,19 @@ dev runs on the real arena scored 0.949 and 0.996, matching or beating the repla
 | Starter kit, dev | 0.262 | $0.68 | 0.152 |
 | Notebook loop only, no solvers | 0.194 | $0.136 | 0.163 |
 | Solvers, held-out milestone | 0.929 | $0.029 | 0.929 |
-| After the citation work, held-out | 0.966 | $0.029 | **0.965** |
-| Live post-event dev run | 0.996 | $0.018 | 0.996 |
+| After the citation work, held-out (v1) | 0.966 | $0.029 | 0.965 |
+| Live post-event dev run (v1) | 0.996 | $0.018 | 0.996 |
+| Files found by role, held-out (v2) | 0.967 | $0.030 | 0.967 |
+| Remaining assumptions read from the workspace, held-out (v2.1) | 0.985 | $0.022 | **0.985** |
 
 For comparison, the event's winner scored 0.750 (A 0.751 at $0.049). Two steps carried most of the gain. Solvers took
 accuracy from the loop's 0.19 to 0.93 while cutting cost by four fifths. Citations were the last third of each correct
 answer: once answers were right, measuring per family which kinds of evidence the grader expects (chosen on dev runs 1–10,
-validated on 11–39) and citing exactly those raised the held-out Score from 0.929 to 0.965 at the same cost.
+validated on 11–39) and citing exactly those raised the held-out Score from 0.929 to 0.965 at the same cost. The last
+step (v2.1, below) was a solver for the one family the loop kept getting wrong, and reading a few remaining rules from
+the workspace instead of assuming them: 0.965 to 0.985, and the cost fell to $0.022 as fewer tasks reached the loop.
 
-At $0.03 per run, C is 1, so the Score equals accuracy. Cost stopped being a trade-off once code answered most tasks
+At $0.02–0.03 per run, C is 1, so the Score equals accuracy. Cost stopped being a trade-off once code answered most tasks
 and prompts stayed small.
 
 ## What didn't work, or wasn't tried
@@ -151,7 +155,7 @@ The journal records a rejected alternative with every decision. A few are worth 
 - **Citing "just in case".** Citations past the expected ones plus two are penalised; every evidence kind we added was
   chosen by measured hits.
 
-## Where it would still break
+## Where it broke, and how we fixed it
 
 The organisers said the final keeps the task types under a different theme, "to punish overfitting", and all 44 recorded
 runs share one theme. So we rewrote the held-out runs into new themes, with the answers still known. Every file format is
@@ -159,17 +163,57 @@ rewritten consistently: text, JSON string literals, office XML, PDF text through
 which are transcribed once, rewritten and redrawn. Paths, requests, expected answers and cited sources change with them,
 and line numbers, token fingerprints and recorded file hashes are kept consistent.
 
-- **New vocabulary**: about 460 swaps (organisation, attacker, agent ids and names, people, services, artifacts, MCP
-  servers, customers). Score 0.962 against 0.965; two of 240 tasks differ.
-- **New layout**: the same plus renamed directories and files and new id prefixes. Accuracy 0.258 at $0.17 on one run.
-  Intake looks for the open ticket only in `/tickets/`, about 25 places find solver inputs by path, and id regexes assume
-  `TOK-` and `INC-`. Solvers miss their inputs, tasks fall back to the expensive loop, and the loop cannot carry them.
+- **New vocabulary** (`port`): about 460 swaps (organisation, attacker, agent ids and names, people, services, artifacts,
+  MCP servers, customers). v1 scored 0.962 against 0.965; two of 240 tasks differed.
+- **New layout** (`layout`): the same plus renamed directories and files and new id prefixes, and "runbook" and
+  "standing order" renamed in the text too. v1 collapsed to an accuracy of 0.258 at $0.17 on one run. Intake looked for the
+  open ticket only in `/tickets/`, about 25 places found solver inputs by path, and id regexes assumed `TOK-` and `INC-`.
+  Solvers missed their inputs, tasks fell back to the expensive loop, and the loop could not carry them.
 
 Building the reskin taught its own lesson. The first new-vocabulary measurement showed a 0.918 Score, which looked like
 overfitting. Comparing task by task showed two bugs in our generated data instead: a redrawn ticket photo had wrapped
 `survey-mirror.test` at the hyphen, so the harness correctly blocked `mirror.test`; and rewritten MCP manifests no longer
 matched their recorded approved hashes, so the harness correctly disabled every server. Synthetic data can mislead as
 easily as it informs. Check it with the same rigour as the system it tests.
+
+**v2: find files by what they are.** Every file is now tagged by its content alone: the audit log is the JSONL whose rows
+have a timestamp, an agent and an action; the board is the JSONL of posts with an id, an author and a text; the change log
+is the markdown table with a change and an agent column; and so on for about fifteen roles. The operator files that
+`/AGENTS.md` names are hints when a role matches several files, and a role that is still ambiguous resolves to nothing,
+so the solver hands the task to the loop rather than guess. The ticket queue is a directory the instruction names that
+holds tickets; the inbox is a named directory of mail. Token ids come from the token inventory, the incident id from
+`/AGENTS.md`. On hub this changed nothing: every role resolved to the file v1 had hard-coded, on 480 of 480 tasks, and
+the local tools still reproduced all 2,652 recorded server responses.
+
+Analysing the layout failures also exposed two things that were worse than lost points. With the change log renamed,
+the check "is this sender flagged as compromised?" read the missing file as "not flagged" and let a request through;
+it now fails closed. And a solver checked a status report's claims against an empty log and answered with confidence;
+solvers now refuse to answer from empty inputs.
+
+**v2.1: the remaining assumptions.** The archive's time zone is read from its own note instead of a constant; the on-call
+handover is found as the prose document that approves change tickets, not by its file name; token status follows the
+tier rule (a revocation in the audit log, else one recorded by security tooling, and a later successful use outranks
+both), which took that family from the loop's 0 to 23 of 23 on dev; and one standing order that says "Do not leave out
+transfers that were blocked. They count." is no longer read as its opposite.
+
+| 5 held-out runs | v1 | v2 | v2.1 |
+|---|---|---|---|
+| hub (recorded) | 0.965 | 0.967 | **0.985** |
+| `port` (new vocabulary) | 0.962 | 0.965 | **0.981** |
+| `layout` (renamed files and ids) | ≈ 0.21 | 0.968 | **0.985** |
+| `ward` (new vocabulary and layout, written after v2 was measured) | – | 0.959 | **0.985** |
+
+`ward` (a hospital group, its inbox moved to `/mail/` and its ticket queue to `/worklist/`) was the clean hold-out for
+v2: no per-task result was read before it ran. Its one loss pointed at the last v2.1 fix (domains written as URLs,
+which the output guard correctly defanged), so for v2.1 it is no longer fully clean. What the harness still assumes is
+the wording of the operator files, a few column-name synonyms and the platform's own formats; none of the four themes
+varies those.
+
+Two measuring problems are worth knowing about. On a laptop, a check that ran for hours turned out to be waiting on
+connections that died while the machine slept, because request timeouts count only awake time; long checks now run with
+sleep prevented. And a redraw with a font lacking bullet glyphs made the vision model transcribe one repeated character
+until its token cap, losing the domains below it; the harness now retries such runaway transcripts and refuses to answer
+confidently from one.
 
 ## Takeaways
 
@@ -183,6 +227,6 @@ easily as it informs. Check it with the same rigour as the system it tests.
 5. **Build the measuring instrument first.** A replay with a calibrated grader and a real hold-out turned every idea into a
    cheap experiment, and kept us honest about which ideas worked.
 6. **Your data's single theme is your code's single theme.** Test on synthetic variations of layout and vocabulary before
-   the final does it for you.
+   the final does it for you, then find every input by what it contains, and keep one variation nobody has looked at.
 
 Code, documentation and every measurement: the repository's `README.md`, `docs/` and `JOURNAL.md`.
