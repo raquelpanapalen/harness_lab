@@ -31,6 +31,10 @@ last column) and the version reports in [`reports/`](reports/).
 | v2, held-out reskinned to `port` | `51094fd` | 5 held-out | 0.970 | $0.031 | 0.99 | 0.965 | 11-23 12:17 |
 | v2, held-out reskinned to `layout` | `51094fd` | 5 held-out | 0.971 | $0.031 | 0.99 | **0.968** | 11-23 12:17 |
 | **v2, new unseen theme `ward` (clean hold-out)** | `54660d5` | 5 held-out | 0.964 | $0.032 | 0.99 | **0.959** | 11-23 12:55 |
+| **v2.1, held-out hub** (token status, handover and time zone from the workspace) | `87e1aae` | 5 held-out | 0.985 | $0.022 | 1.00 | **0.985** | 11-23 14:26 |
+| v2.1, held-out reskinned to `port` | `87e1aae` | 5 held-out | 0.981 | $0.024 | 1.00 | 0.981 | 11-23 14:26 |
+| v2.1, held-out reskinned to `layout` | `87e1aae` | 5 held-out | 0.985 | $0.022 | 1.00 | 0.985 | 11-23 14:26 |
+| v2.1, `ward` (no longer fully clean) | `87e1aae` | 5 held-out | 0.985 | $0.023 | 1.00 | 0.985 | 11-23 14:26 |
 
 v2 (build ticket 17, [`reports/v2.md`](reports/v2.md)) finds every workspace file by its content instead of its path,
 and learns token, incident and agent ids from the workspace: the layout reskin goes from ≈ 0.21 to 0.968 while hub
