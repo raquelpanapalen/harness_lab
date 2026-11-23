@@ -283,3 +283,9 @@ Format example (ignored: it sits in a code block). Write your entries below it, 
 - change: vision: a transcript with a run of 200+ identical characters is retried once with a note to write rules as "---", remaining runs collapsed, still-runaway images recorded (Vision.incomplete); the attacker-domain solver is not confident on a named page whose transcript is incomplete; synth redraw falls back to macOS fonts with bullet/dash glyphs (Arial, Courier New, Bradley Hand) before Pillow's built-in font
 - rejected: a larger token cap (pays for the runaway too), collapsing runs without a retry (the lines after the run were never generated)
 - evidence: redrawn page now shows bullets and dashes as on the Linux build; layout-dev rebuilt, check.py ALL OK; unit test for retry/collapse/flag; re-run of layout-dev rp001 next
+
+## 12:17 · Ticket 17 held-out measurement: hub 0.967, port 0.965, layout 0.968
+- decided_by: both        # the human asked for the three measurements; run order and setup were the AI's
+- why: check that finding files by role holds hub and port and lifts layout (ticket 17 done-when: hub ≥ 0.96, port ≥ 0.96, layout ≥ 0.93)
+- change: none (measurement only, code 51094fd), one run at a time; v1 port results kept in harvester/replay_results/port_v3_harness_v1
+- evidence: hub held-out rp001–rp005 A 0.938/0.985/0.964/0.985/0.964, Score 0.967 at $0.030 (v1 0.965 at $0.029; 2 of 240 tasks differ: rp004 t47 containment 0.67 → 1.00 from the wrapped-request fix, rp001 t24 photo citation 0.88 → 0.76); port A 0.938/0.985/0.978/0.985/0.964, Score 0.965 at $0.031 (v1 0.962; t47 0.33 → 1.00); layout A 0.937/0.985/0.964/0.985/0.985, Score 0.968 at $0.031 (v1 ≈ 0.21 on run 1); 720/720 submitted, no constraint failure; rp001 costs $0.050–0.057 in every set (v1 $0.0505), the mean stays at $0.030. Still to do: a new unseen theme as the clean hold-out, docs/reports/v2.md, docs/results.md, tag v2
